@@ -21,9 +21,16 @@ const router = express.Router();
 const cache = new NodeCache({ stdTTL: 1800 }); // 天气缓存30分钟
 const QWEATHER_KEY = process.env.QWEATHER_KEY;
 
-// 和风天气API基础地址（免费版用 devapi）
-const BASE_URL = 'https://devapi.qweather.com';
-const GEO_URL = 'https://geoapi.qweather.com';
+// 和风天气API基础地址
+// 2024年起和风改为专属API Host，请在控制台「设置」页查看你的专属域名
+// 形如 abc123def.re.qweatherapi.com，配置到环境变量 QWEATHER_HOST
+// 兼容旧版：未配置时回退到 devapi（老免费版）或 api（标准版）
+const BASE_URL = process.env.QWEATHER_HOST
+  ? `https://${process.env.QWEATHER_HOST}`
+  : 'https://devapi.qweather.com';
+const GEO_URL = process.env.QWEATHER_HOST
+  ? `https://${process.env.QWEATHER_HOST}`
+  : 'https://geoapi.qweather.com';
 
 /**
  * GET /api/weather/city
@@ -160,7 +167,14 @@ router.get('/now', async (req, res) => {
     });
   } catch (err) {
     console.error('[和风天气] 实时天气获取失败:', err.message);
-    res.status(500).json({ error: '实时天气请求失败', detail: err.message });
+    const is403 = err.response && err.response.status === 403;
+    res.status(500).json({
+      error: '实时天气请求失败',
+      detail: err.message,
+      hint: is403
+        ? '403错误通常是因为API Host不匹配。和风2024年起要求使用专属API Host，请到控制台「设置」页查看你的专属域名（形如 abc123def.re.qweatherapi.com），配置到环境变量 QWEATHER_HOST'
+        : undefined
+    });
   }
 });
 

@@ -60,6 +60,7 @@ app.get('/api/health', (req, res) => {
     keys: {
       amap: isRealKey(process.env.AMAP_KEY),
       qweather: isRealKey(process.env.QWEATHER_KEY),
+      qweatherHost: !!process.env.QWEATHER_HOST,
       wechat: isRealKey(process.env.WX_APPID) && isRealKey(process.env.WX_SECRET)
     }
   });

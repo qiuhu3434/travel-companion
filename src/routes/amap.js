@@ -55,7 +55,15 @@ router.get('/poi', async (req, res) => {
     });
 
     if (resp.data.status !== '1') {
-      return res.status(502).json({ error: '高德API返回错误', detail: resp.data.info });
+      const detail = resp.data.info || '';
+      const isPlatMismatch = detail.includes('USERKEY_PLAT_NOMATCH');
+      return res.status(502).json({
+        error: '高德API返回错误',
+        detail,
+        hint: isPlatMismatch
+          ? '你的Key类型与调用的API不匹配。本服务调用的是「Web服务」API（restapi.amap.com），请到高德控制台创建一个类型为「Web服务」的Key，而不是「Web端(JS API)」'
+          : undefined
+      });
     }
 
     const pois = (resp.data.pois || []).map(p => ({
