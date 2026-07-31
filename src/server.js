@@ -71,13 +71,17 @@ const frontendDir = path.join(__dirname, '..', 'public');
 app.use(express.static(frontendDir));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(frontendDir, 'index.html'));
+  res.sendFile(path.join(frontendDir, 'index.html'), (err) => {
+    if (err) res.status(404).json({ error: '前端页面未找到' });
+  });
 });
 
 // 所有非 /api、非静态文件的请求都返回 index.html（前端路由兼容）
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(frontendDir, 'index.html'));
+  res.sendFile(path.join(frontendDir, 'index.html'), (err) => {
+    if (err) res.status(404).json({ error: '前端页面未找到', path: req.path });
+  });
 });
 
 /* ---- 全局错误处理 ---- */

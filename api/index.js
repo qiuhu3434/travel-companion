@@ -1,17 +1,18 @@
 /**
  * Vercel Serverless Function 入口
  *
- * Vercel 会把 /api/* 路径的请求转发到这里，
- * serverless-http 把 Express app 包装成 Serverless 函数。
+ * 不使用 serverless-http，直接导出 Express app。
+ * Vercel @vercel/node 运行时会以 (req, res) 形式调用本导出函数，
+ * 而 Express app 本身就是一个合法的 (req, res) => void 处理器。
  */
-const serverless = require('serverless-http');
-
 let app;
 try {
   app = require('../src/server');
+  if (typeof app !== 'function') {
+    throw new Error('server.js 未导出可调用的 Express 实例');
+  }
 } catch (err) {
   console.error('[启动错误]', err.message, err.stack);
-  // 返回一个最小的 Express 实例，避免整个函数崩溃
   const express = require('express');
   app = express();
   app.all('*', (req, res) => {
@@ -19,4 +20,4 @@ try {
   });
 }
 
-module.exports = serverless(app);
+module.exports = app;
