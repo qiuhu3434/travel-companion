@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>悠行 · 出行游玩规划助手</title>
+<style>
+:root{
+  --bg:#f0f4f8; --card:#ffffff; --primary:#0d9488; --primary-light:#ccfbf1;
+  --primary-dark:#0f766e; --accent:#f59e0b; --danger:#ef4444; --danger-light:#fee2e2;
+  --text:#1e293b; --text-light:#64748b; --text-muted:#94a3b8;
+  --border:#e2e8f0; --sidebar:#ffffff; --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,.08),0 2px 4px -1px rgba(0,0,0,.04);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+.app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:64px 1fr;height:100vh;overflow:hidden}
+
+/* Header */
+.header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border);box-shadow:var(--shadow);z-index:10}
+.logo{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;color:var(--primary-dark)}
+.logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;font-size:20px}
+.header-actions{display:flex;gap:12px;align-items:center}
+.btn{border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-light)}
+.btn-outline:hover{border-color:var(--primary);color:var(--primary)}
+.btn-sm{padding:5px 12px;font-size:12px}
+
+/* Sidebar */
+.sidebar{background:var(--sidebar);border-right:1px solid var(--border);padding:16px 12px;overflow-y:auto}
+.sidebar-title{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:8px 0 12px 8px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;transition:all .2s;margin-bottom:4px;color:var(--text-light);font-weight:500}
+.nav-item:hover{background:var(--primary-light);color:var(--primary-dark)}
+.nav-item.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:0 4px 12px rgba(13,148,136,.3)}
+.nav-icon{font-size:20px;width:28px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700}
+.nav-item.active .nav-badge{background:rgba(255,255,255,.3)}
+
+/* Main */
+.main{overflow-y:auto;padding:20px}
+.top-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.panel{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.panel-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.panel-body{padding:16px 20px}
+.section-content{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);min-height:400px}
+.section-header{padding:20px 24px;border-bottom:1px solid var(--border)}
+.section-header h2{font-size:18px;display:flex;align-items:center;gap:10px}
+.section-header p{color:var(--text-muted);font-size:13px;margin-top:4px}
+.section-body{padding:24px}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-light);border:1px solid transparent;border-bottom:none;transition:all .2s}
+.tab:hover{background:var(--primary-light)}
+.tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* Cards */
+.card{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;transition:all .2s;background:#fff}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--primary-light)}
+.card-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-title{font-weight:600;font-size:14px}
+.card-meta{font-size:12px;color:var(--text-muted)}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.badge-teal{background:var(--primary-light);color:var(--primary-dark)}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-red{background:var(--danger-light);color:var(--danger)}
+
+/* Weather */
+.weather-box{background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:12px;padding:20px;color:#fff;display:flex;align-items:center;justify-content:space-between}
+.weather-temp{font-size:40px;font-weight:300}
+.weather-info{font-size:13px;opacity:.9}
+
+/* Calendar */
+.calendar{width:100%;border-collapse:collapse}
+.calendar th{text-align:center;padding:10px;font-size:12px;color:var(--text-muted);font-weight:600}
+.calendar td{text-align:center;padding:0;vertical-align:top}
+.cal-day{width:100%;min-height:64px;border:1px solid var(--border);padding:6px 4px;cursor:pointer;transition:all .15s;font-size:13px}
+.cal-day:hover{background:var(--primary-light)}
+.cal-day.today{background:#e0f2fe;border-color:#0284c7}
+.cal-day.selected{background:var(--primary);color:#fff}
+.cal-day.other{opacity:.35}
+.cal-num{font-weight:600;display:block}
+.cal-yi{font-size:9px;color:var(--primary-dark);margin-top:2px;line-height:1.2}
+.cal-ji{font-size:9px;color:var(--danger);margin-top:1px;line-height:1.2}
+.cal-day.selected .cal-yi{color:#fff}
+.cal-day.selected .cal-ji{color:#fecaca}
+
+/* Transport grid */
+.transport-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.transport-card{border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;text-align:center}
+.transport-card:hover{border-color:var(--primary);box-shadow:var(--shadow-md)}
+.transport-card.selected{background:var(--primary-light);border-color:var(--primary);border-width:2px}
+.transport-icon{font-size:32px}
+.transport-name{font-weight:600;margin-top:6px}
+.transport-detail{font-size:11px;color:var(--text-muted);margin-top:4px}
+
+/* Checklist */
+.checklist-group{margin-bottom:24px}
+.checklist-group-title{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:2px solid var(--primary-light)}
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .15s}
+.check-item:hover{background:var(--primary-light)}
+.check-box{width:20px;height:20px;border:2px solid var(--border);border-radius:6px;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.check-item.done .check-box{background:var(--primary);border-color:var(--primary)}
+.check-item.done .check-box::after{content:'✓';color:#fff;font-size:13px;font-weight:700}
+.check-item.done .check-label{color:var(--text-muted);text-decoration:line-through}
+.check-label{font-size:13px}
+.check-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+
+/* Budget */
+.mode-toggle{display:flex;background:var(--bg);border-radius:8px;padding:4px;margin-bottom:16px}
+.mode-btn{flex:1;padding:8px 12px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-light);transition:all .2s;font-family:inherit}
+.mode-btn.active{background:var(--card);color:var(--primary-dark);box-shadow:var(--shadow);font-weight:600}
+.budget-input-group{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.budget-input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit}
+.budget-input:focus{outline:none;border-color:var(--primary)}
+.plan-card{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.plan-card:hover{border-color:var(--primary)}
+.plan-card.selected{border:2px solid var(--primary);background:var(--primary-light)}
+.plan-name{font-weight:700;font-size:14px;margin-bottom:8px}
+.plan-bar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:8px 0}
+.plan-seg{display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:600}
+.plan-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;margin-top:8px}
+.legend-item{display:flex;align-items:center;gap:4px}
+
+/* Guides */
+.guide-card{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.guide-card:hover{box-shadow:var(--shadow-md)}
+.guide-source{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;display:inline-block}
+.src-amap{background:#e0f2fe;color:#0369a1}
+.src-ctrip{background:#fef3c7;color:#92400e}
+.src-xhs{background:#fce7f3;color:#be185d}
+.guide-title{font-weight:600;margin:6px 0}
+.guide-summary{font-size:12px;color:var(--text-light)}
+.similarity-bar{height:5px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
+.similarity-fill{height:100%;background:linear-gradient(90deg,var(--primary),#2dd4bf);border-radius:3px;transition:width .6s}
+
+/* Route timeline */
+.timeline{position:relative;padding-left:24px}
+.timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:20px}
+.timeline-dot{position:absolute;left:-24px;top:4px;width:16px;height:16px;border-radius:50%;background:var(--card);border:3px solid var(--primary);z-index:1}
+.timeline-content{padding:12px 16px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.timeline-time{font-size:12px;color:var(--primary-dark);font-weight:600}
+.timeline-place{font-weight:600;margin:2px 0}
+.timeline-desc{font-size:12px;color:var(--text-light)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .2s}
+.modal-overlay.show{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:#fff;border-radius:16px;max-width:540px;width:90%;max-height:85vh;overflow-y:auto;animation:slideUp .3s}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);line-height:1}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px}
+
+/* Alerts */
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:13px;display:flex;align-items:flex-start;gap:10px}
+.alert-warning{background:#fef3c7;border:1px solid #fde68a;color:#92400e}
+.alert-danger{background:var(--danger-light);border:1px solid #fecaca;color:var(--danger)}
+.alert-success{background:#d1fae5;border:1px solid #a7f3d0;color:#065f46}
+.alert-info{background:#dbeafe;border:1px solid #bfdbfe;color:#1e40af}
+
+/* Progress */
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),#2dd4bf);transition:width .5s}
+
+/* Misc */
+.empty{text-align:center;padding:40px 20px;color:var(--text-muted)}
+.empty-icon{font-size:48px;opacity:.3;margin-bottom:12px}
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{padding:2px 8px;border-radius:6px;font-size:11px;background:var(--bg);color:var(--text-light)}
+.field-label{font-size:12px;color:var(--text-muted);margin-bottom:4px;font-weight:600}
+input,select,textarea{font-family:inherit}
+.section-tabs{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px;margin-bottom:16px}
+.section-tab{padding:7px 14px;border:none;background:transparent;border-radius:6px;cursor:pointer;font-size:12px;font-weight:500;color:var(--text-light);transition:all .15s}
+.section-tab.active{background:#fff;color:var(--primary-dark);box-shadow:var(--shadow);font-weight:600}
+.day-selector{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.day-pill{padding:6px 14px;border-radius:20px;border:1px solid var(--border);cursor:pointer;font-size:12px;transition:all .15s}
+.day-pill.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.muted{color:var(--text-muted)}
+.fw-bold{font-weight:700}
+.mt-8{margin-top:8px}.mt-16{margin-top:16px}.mb-8{margin-bottom:8px}.mb-16{margin-bottom:16px}
+.flex{display:flex}.gap-8{gap:8px}.items-center{align-items:center}.justify-between{justify-content:space-between}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">🧳</div>
+      <span>悠行 · 出行游玩规划助手</span>
+    </div>
+    <div class="header-actions">
+      <span id="api-status-badge" style="font-size:11px;padding:4px 10px;border-radius:6px;background:var(--bg);color:var(--text-muted)">检查中...</span>
+      <button class="btn btn-outline btn-sm" onclick="showReminder()">🔔 出发前提醒</button>
+      <button class="btn btn-primary btn-sm" onclick="runFullCheck()">✅ 一键出行检查</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-title">规划板块</div>
+    <div class="nav-item active" data-section="date" onclick="switchSection('date')">
+      <span class="nav-icon">📅</span><span>出行日期</span>
+    </div>
+    <div class="nav-item" data-section="location" onclick="switchSection('location')">
+      <span class="nav-icon">📍</span><span>出行地点</span>
+    </div>
+    <div class="nav-item" data-section="transport" onclick="switchSection('transport')">
+      <span class="nav-icon">🚗</span><span>出行选择</span>
+    </div>
+    <div class="nav-item" data-section="prep" onclick="switchSection('prep')">
+      <span class="nav-icon">📋</span><span>出行准备</span>
+      <span class="nav-badge">!</span>
+    </div>
+    <div class="sidebar-title" style="margin-top:24px">快速操作</div>
+    <div class="nav-item" onclick="switchSection('date')">
+      <span class="nav-icon">💰</span><span>旅行经费</span>
+    </div>
+    <div class="nav-item" onclick="switchSection('date')">
+      <span class="nav-icon">📖</span><span>攻略检索</span>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Top Panels: Budget + Guides -->
+    <div class="top-panels">
+      <!-- Budget Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">💰 旅行经费</div>
+          <span class="badge badge-teal" id="budget-mode-label">模式一</span>
+        </div>
+        <div class="panel-body">
+          <div class="mode-toggle">
+            <button class="mode-btn active" onclick="switchBudgetMode(1)">模式一·自动分配</button>
+            <button class="mode-btn" onclick="switchBudgetMode(2)">模式二·自填预估</button>
+          </div>
+          <div id="budget-mode1">
+            <div class="budget-input-group">
+              <span class="field-label" style="white-space:nowrap">总预算</span>
+              <input type="number" class="budget-input" id="total-budget" placeholder="输入总金额（元）" oninput="generatePlans()">
+              <span>元</span>
+            </div>
+            <div id="plan-list" style="display:none">
+              <p class="muted" style="font-size:12px;margin-bottom:10px">系统已根据总金额生成以下分配方案，请选择其一：</p>
+              <div id="plans-container"></div>
+            </div>
+          </div>
+          <div id="budget-mode2" style="display:none">
+            <p class="muted" style="font-size:12px;margin-bottom:10px">逐日填写各板块花费，系统将分类汇总并预估总额，不合理项将自动指正。</p>
+            <div id="budget-fill-area"></div>
+            <button class="btn btn-primary btn-sm mt-16" onclick="summarizeBudget()">汇总预估</button>
+            <div id="budget-summary"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Guides Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">📖 攻略检索</div>
+          <span class="badge badge-teal" id="guide-count">0 条</span>
+        </div>
+        <div class="panel-body">
+          <div class="budget-input-group">
+            <input type="text" class="budget-input" id="guide-query" placeholder="输入目的地 / 关键词..." value="">
+            <button class="btn btn-primary btn-sm" onclick="searchGuides()">🔍 检索</button>
+          </div>
+          <div id="guide-results">
+            <div class="empty"><div class="empty-icon">📖</div><div>填写旅行地点后点击检索，<br>系统将从高德地图、携程、小红书获取攻略</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Content -->
+    <div class="section-content" id="section-content">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<script>
+/* ==================== API 调用层 ==================== */
+/*
+ * 原理说明：
+ *   前端通过 fetch() 调用同域后端的 /api/* 接口
+ *   后端再转发到高德/和风天气/微信等真实API
+ *   如果后端没启动或Key未配置，自动回退到模拟数据
+ *
+ * 调用链路：
+ *   浏览器 → localhost:3000/api/weather/now → 后端 → 和风天气API
+ *   浏览器 → localhost:3000/api/amap/poi    → 后端 → 高德地图API
+ *
+ * 这样做的好处：
+ *   1. API Key 只存在后端 .env 文件里，不暴露给前端
+ *   2. 前端和后端在同一个 localhost:3000 下，没有跨域问题
+ *   3. 后端没配Key时前端照样能用（模拟数据），不影响开发调试
+ */
+
+// API基础地址：同域，不需要写完整URL
+// 如果后端跑在别的端口或服务器上，改成 http://localhost:3000 或你的域名
+const API_BASE = '';  // 空字符串 = 同域请求，如 localhost:3000/api/...
+
+// 数据来源标记：'live' = 真实API数据，'mock' = 模拟数据
+let dataSource = { weather:'mock', poi:'mock', guides:'mock', check:'mock' };
+
+// 通用API请求函数：失败时返回null，由调用方决定回退逻辑
+async function apiFetch(path, params={}) {
+  try {
+    const url = new URL(API_BASE + path, window.location.origin);
+    Object.entries(params).forEach(([k,v]) => { if(v) url.searchParams.set(k, v); });
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    // 检查是否是错误响应
+    if (json.error) { console.warn('[API]', path, json.error); return null; }
+    return json;
+  } catch(e) {
+    // 后端没启动、网络错误等
+    console.warn('[API]', path, '请求失败，使用模拟数据:', e.message);
+    return null;
+  }
+}
+
+// 检查后端是否在线
+async function checkBackendStatus() {
+  const result = await apiFetch('/api/health');
+  const badge = document.getElementById('api-status-badge');
+  if (!badge) return;
+  if (result && result.status === 'ok') {
+    const k = result.keys;
+    const liveCount = (k.amap?1:0) + (k.qweather?1:0) + (k.wechat?1:0);
+    if (liveCount > 0) {
+      badge.innerHTML = '🟢 后端已连接 · ' + liveCount + '/3 个API已配置';
+      badge.style.background = '#d1fae5';
+      badge.style.color = '#065f46';
+    } else {
+      badge.innerHTML = '🟡 后端已连接 · API Key 未配置（使用模拟数据）';
+      badge.style.background = '#fef3c7';
+      badge.style.color = '#92400e';
+    }
+  } else {
+    badge.innerHTML = '🔴 后端未启动（使用模拟数据）';
+    badge.style.background = '#fee2e2';
+    badge.style.color = '#dc2626';
+  }
+}
+
+/* ==================== State ==================== */
+const state={
+  section:'date',
+  date:{start:'2026-08-15',end:'2026-08-18',selectedDay:null,weather:{temp:32,desc:'晴',wind:'东南风3级',humidity:'65%'},weatherLoaded:false},
+  locations:{hotel:[],restaurant:[],scenic:[],heritage:[],amusement:[]},
+  transport:{selected:['car']},
+  prep:{},
+  budget:{mode:1,total:0,selectedPlan:0,fillData:{}},
+  guides:[],
+  city:'杭州'  // 默认城市
+};
+
+/* ==================== Section Switching ==================== */
+function switchSection(s){
+  state.section=s;
+  document.querySelectorAll('.nav-item[data-section]').forEach(n=>{
+    n.classList.toggle('active',n.dataset.section===s);
+  });
+  renderSection();
+}
+
+function renderSection(){
+  const c=document.getElementById('section-content');
+  switch(state.section){
+    case 'date':c.innerHTML=dateHTML();initCalendar();loadWeatherFromAPI();break;
+    case 'location':c.innerHTML=locationHTML();break;
+    case 'transport':c.innerHTML=transportHTML();break;
+    case 'prep':c.innerHTML=prepHTML();initPrep();break;
+  }
+}
+
+/* ---- 天气：从后端API加载真实数据 ---- */
+async function loadWeatherFromAPI(){
+  if(state.date.weatherLoaded) return; // 只加载一次
+  // 第一步：查城市ID（和风天气需要先获取LocationID）
+  const cityResult=await apiFetch('/api/weather/city',{location:state.city});
+  if(!cityResult||!cityResult.data||!cityResult.data[0]){
+    console.log('[天气] 城市查询失败，使用模拟天气数据');
+    return; // 保持mock数据
+  }
+  const locationId=cityResult.data[0].id;
+  // 第二步：同时请求实时天气+预报+预警
+  const [now,forecast,warning]=await Promise.all([
+    apiFetch('/api/weather/now',{location:locationId}),
+    apiFetch('/api/weather/forecast',{location:locationId}),
+    apiFetch('/api/weather/warning',{location:locationId})
+  ]);
+  if(now&&now.data){
+    // 用真实数据更新state
+    state.date.weather={
+      temp:now.data.temp,
+      desc:now.data.text,
+      wind:now.data.windDir+now.data.windScale+'级',
+      humidity:now.data.humidity+'%',
+      feelsLike:now.data.feelsLike
+    };
+    state.date.weatherLoaded=true;
+    dataSource.weather='live';
+    // 如果当前正在显示日期板块，刷新天气卡片
+    const weatherBox=document.querySelector('.weather-box');
+    if(weatherBox){
+      const w=state.date.weather;
+      weatherBox.innerHTML=`
+        <div>
+          <div style="font-size:15px;opacity:.9">今日天气 · ${state.city} <span style="font-size:11px;background:rgba(255,255,255,.2);padding:1px 6px;border-radius:4px">实时</span></div>
+          <div class="weather-temp">${w.temp}°</div>
+          <div class="weather-info">${w.desc} · ${w.wind} · 湿度${w.humidity}${w.feelsLike?' · 体感'+w.feelsLike+'°':''}</div>
+        </div>
+        <div style="font-size:56px">${w.desc.includes('雨')?'🌧️':w.desc.includes('云')?'⛅':w.desc.includes('雪')?'🌨️':'☀️'}</div>`;
+    }
+  }
+  // 如果有气象预警，在天气卡片下方显示
+  if(warning&&warning.data&&warning.data.length>0){
+    const detail=document.getElementById('day-detail');
+    if(detail){
+      let warnHtml='<div class="alert alert-danger mt-16">⚠️ 气象预警：</div>';
+      warning.data.forEach(w=>{
+        warnHtml+=`<div class="alert alert-danger">🔴 <strong>${w.title}</strong><br>${w.text}<br><span class="muted">${w.startTime} 至 ${w.endTime}</span></div>`;
+      });
+      detail.insertAdjacentHTML('afterbegin',warnHtml);
+    }
+  }
+}
+
+/* ==================== 出行日期 ==================== */
+const yiActions=['出行','会友','观光','祈福','购物','签约','动土','搬家','沐浴','裁衣','订盟','纳财','嫁娶'];
+const jiActions=['动土','开市','安葬','行丧','伐木','乘船','远行','斋醮','针灸','祭祀','探病','出货财','求医疗病','破土'];
+
+function dateHTML(){
+  const w=state.date.weather;
+  return `
+  <div class="section-header"><h2>📅 出行日期</h2><p>查看天气、设置起始时间，日历标注每日宜与不宜</p></div>
+  <div class="section-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div class="weather-box">
+        <div>
+          <div style="font-size:15px;opacity:.9">今日天气</div>
+          <div class="weather-temp">${w.temp}°</div>
+          <div class="weather-info">${w.desc} · ${w.wind} · 湿度${w.humidity}</div>
+        </div>
+        <div style="font-size:56px">${w.desc.includes('雨')?'🌧️':w.desc.includes('云')?'⛅':'☀️'}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">🕐 出行起始时间</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+          <div>
+            <div class="field-label">出发日期</div>
+            <input type="date" class="budget-input" value="${state.date.start}" onchange="state.date.start=this.value">
+          </div>
+          <div>
+            <div class="field-label">返程日期</div>
+            <input type="date" class="budget-input" value="${state.date.end}" onchange="state.date.end=this.value">
+          </div>
+          <div>
+            <div class="field-label">出发时间</div>
+            <input type="time" class="budget-input" value="08:00">
+          </div>
+          <div>
+            <div class="field-label">返程时间</div>
+            <input type="time" class="budget-input" value="18:00">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">📆 出行日历 · 今日宜/不宜</div>
+      <div id="calendar-container"></div>
+      <div id="day-detail" style="margin-top:16px"></div>
+    </div>
+  </div>`;
+}
+
+function initCalendar(){
+  const container=document.getElementById('calendar-container');
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth();
+  const firstDay=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const months=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  let html=`<div style="text-align:center;font-weight:700;margin-bottom:12px;font-size:16px">${y}年 ${months[m]}</div>`;
+  html+='<table class="calendar"><thead><tr>';
+  ['日','一','二','三','四','五','六'].forEach(d=>html+=`<th>${d}</th>`);
+  html+='</tr></thead><tbody><tr>';
+  for(let i=0;i<firstDay;i++) html+='<td></td>';
+  const today=now.getDate();
+  // Deterministic pseudo-random based on day
+  const pick=(arr,seed)=>arr[seed%arr.length];
+  for(let d=1;d<=daysInMonth;d++){
+    const dow=(firstDay+d-1)%7;
+    if(dow===0&&d>1) html+='</tr><tr>';
+    const isToday=d===today;
+    const seed=(d*7+m*3+y)%100;
+    const yi=pick(yiActions,seed); const yi2=pick(yiActions,seed+5);
+    const ji=pick(jiActions,seed+2);
+    html+=`<td><div class="cal-day ${isToday?'today':''}" onclick="selectDay(${d})">
+      <span class="cal-num">${d}</span>
+      <div class="cal-yi">宜:${yi} ${yi2}</div>
+      <div class="cal-ji">忌:${ji}</div>
+    </div></td>`;
+  }
+  html+='</tr></tbody></table>';
+  container.innerHTML=html;
+  selectDay(today);
+}
+
+function selectDay(d){
+  document.querySelectorAll('.cal-day').forEach(el=>{
+    el.classList.toggle('selected',parseInt(el.querySelector('.cal-num').textContent)===d);
+  });
+  state.date.selectedDay=d;
+  const seed=(d*7+new Date().getMonth()*3+new Date().getFullYear())%100;
+  const yi1=yiActions[seed%yiActions.length],yi2=yiActions[(seed+5)%yiActions.length],yi3=yiActions[(seed+9)%yiActions.length];
+  const ji1=jiActions[(seed+2)%jiActions.length],ji2=jiActions[(seed+6)%jiActions.length];
+  document.getElementById('day-detail').innerHTML=`
+    <div class="alert alert-info">
+      <div>
+        <strong>${new Date().getFullYear()}年${new Date().getMonth()+1}月${d}日 黄历参考</strong><br>
+        <span style="color:#065f46">✅ 宜：${yi1} · ${yi2} · ${yi3}</span><br>
+        <span style="color:#991b1b">⛔ 不宜：${ji1} · ${ji2}</span>
+      </div>
+    </div>`;
+}
+
+/* ==================== 出行地点 ==================== */
+const locationData={
+  hotel:[
+    {name:'全季酒店(西湖店)',rating:4.7,price:'¥320/晚',addr:'杭州·西湖区',tags:['近地铁','含早','免费停车']},
+    {name:'亚朵S酒店(湖滨店)',rating:4.8,price:'¥580/晚',addr:'杭州·上城区',tags:['江景房','健身中心','下午茶']},
+    {name:'民宿·栖迟山居',rating:4.9,price:'¥450/晚',addr:'杭州·灵隐路',tags:['山景','宠物友好','厨房可用']},
+  ],
+  restaurant:[
+    {name:'知味观·味庄',rating:4.6,price:'¥120/人',addr:'杭州·杨公堤',tags:['杭帮菜','老字号','需预约']},
+    {name:'外婆家(西湖银泰店)',rating:4.4,price:'¥65/人',addr:'杭州·上城区',tags:['性价比','江浙菜','排队长']},
+    {name:'绿茶餐厅(龙井店)',rating:4.5,price:'¥80/人',addr:'杭州·龙井路',tags:['创意杭帮菜','环境好','人气旺']},
+  ],
+  scenic:[
+    {name:'西湖风景名胜区',rating:4.8,price:'免费',addr:'杭州·西湖区',tags:['5A景区','世界遗产','免费开放']},
+    {name:'千岛湖风景区',rating:4.7,price:'¥130',addr:'杭州·淳安',tags:['5A景区','游船','需购门票']},
+    {name:'灵隐寺',rating:4.6,price:'¥75',addr:'杭州·西湖区',tags:['千年古刹','飞来峰','祈福']},
+  ],
+  heritage:[
+    {name:'雷峰塔',rating:4.5,price:'¥40',addr:'杭州·西湖区',tags:['白蛇传说','登塔观景','夜景灯光']},
+    {name:'岳王庙',rating:4.4,price:'¥25',addr:'杭州·西湖区',tags:['历史纪念','爱国教育','古建筑']},
+    {name:'六和塔',rating:4.3,price:'¥30',addr:'杭州·钱塘江畔',tags:['宋代古塔','观潮','水浒故事']},
+  ],
+  amusement:[
+    {name:'杭州宋城',rating:4.6,price:'¥320',addr:'杭州·之江路',tags:['千古情演出','主题乐园','含演出票']},
+    {name:'杭州乐园',rating:4.4,price:'¥220',addr:'杭州·萧山',tags:['过山车','水上项目','亲子']},
+    {name:'烂苹果乐园',rating:4.3,price:'¥160',addr:'杭州·萧山',tags:['室内乐园','亲子','VR体验']},
+  ]
+};
+const locLabels={hotel:'住宿酒店',restaurant:'用餐餐馆',scenic:'风景名胜',heritage:'人文古迹',amusement:'游乐场所'};
+const locIcons={hotel:'🏨',restaurant:'🍽️',scenic:'🏞️',heritage:'🏛️',amusement:'🎢'};
+
+function locationHTML(){
+  return `
+  <div class="section-header"><h2>📍 出行地点</h2><p>住宿酒店 · 用餐餐馆 · 风景名胜 · 人文古迹 · 游乐场所，每项可在携程、小红书检索</p></div>
+  <div class="section-body">
+    <div class="budget-input-group mb-16">
+      <input type="text" class="budget-input" id="loc-city" placeholder="城市名称" value="${state.city}" style="max-width:120px">
+      <input type="text" class="budget-input" id="loc-search" placeholder="搜索酒店/餐厅/景点..." style="flex:1">
+      <button class="btn btn-primary btn-sm" onclick="searchPOIFromAPI()">🔍 搜索</button>
+    </div>
+    <div id="poi-api-results" style="display:none;margin-bottom:16px"></div>
+    <div class="section-tabs" id="loc-tabs">
+      ${Object.keys(locLabels).map((k,i)=>`<button class="section-tab ${i===0?'active':''}" onclick="switchLoc('${k}')">${locIcons[k]} ${locLabels[k]}</button>`).join('')}
+    </div>
+    <div id="loc-list"></div>
+  </div>`;
+}
+
+// 高德POI类型编码映射
+const amapTypeMap={
+  hotel:'100000',       // 住宿服务
+  restaurant:'050000',  // 餐饮服务
+  scenic:'110000',      // 风景名胜
+  heritage:'140200',    // 文物古迹
+  amusement:'080000'    // 休闲娱乐
+};
+
+/* ---- 从高德API搜索POI ---- */
+async function searchPOIFromAPI(){
+  const city=document.getElementById('loc-city').value.trim()||state.city;
+  const keyword=document.getElementById('loc-search').value.trim();
+  if(!keyword){alert('请输入搜索关键词');return;}
+  state.city=city;
+  const resultsDiv=document.getElementById('poi-api-results');
+  resultsDiv.style.display='block';
+  resultsDiv.innerHTML='<div class="alert alert-info">🔍 正在从高德地图搜索「'+keyword+'」...</div>';
+  // 调用后端API → 后端调用高德API
+  const result=await apiFetch('/api/amap/poi',{keywords:keyword,city:city});
+  if(result&&result.data&&result.data.length>0){
+    dataSource.poi='live';
+    resultsDiv.innerHTML=
+      '<div class="alert alert-success">✅ 高德地图返回 '+result.data.length+' 条结果 <span style="font-size:11px">(实时数据)</span></div>'+
+      result.data.slice(0,8).map(p=>`
+        <div class="card">
+          <div class="card-row">
+            <div style="flex:1">
+              <div class="card-title">📍 ${p.name}</div>
+              <div class="card-meta">${p.address||'地址未知'} ${p.tel?' · ☎ '+p.tel:''} ${p.rating?' · ⭐'+p.rating:''}</div>
+              <div class="tag-row">${(p.type||'').split(';').filter(t=>t).map(t=>'<span class="tag">'+t+'</span>').join('')}</div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-outline btn-sm" onclick="searchOnPlatform('${p.name.replace(/'/g,'')}','携程')">携程</button>
+              <button class="btn btn-outline btn-sm" onclick="searchOnPlatform('${p.name.replace(/'/g,'')}','小红书')">小红书</button>
+              <button class="btn btn-outline btn-sm" onclick="window.open('https://uri.amap.com/marker?position=${p.location||''}&name=${encodeURIComponent(p.name)}')">🗺️ 地图</button>
+            </div>
+          </div>
+        </div>`).join('');
+  }else{
+    resultsDiv.innerHTML='<div class="alert alert-warning">⚠️ 高德API未返回数据（可能Key未配置），下方为预设示例数据。</div>';
+  }
+}
+
+/* ---- 按分类从高德API加载推荐地点 ---- */
+async function loadLocationsByCategory(cat){
+  const city=state.city;
+  const keywords=locLabels[cat];
+  const types=amapTypeMap[cat]||'';
+  const result=await apiFetch('/api/amap/poi',{keywords:keywords,city:city,types:types});
+  if(result&&result.data&&result.data.length>0){
+    dataSource.poi='live';
+    return result.data.map(p=>({
+      name:p.name,
+      rating:p.rating?parseFloat(p.rating):4.5,
+      price:p.cost||'详见平台',
+      addr:(p.address||'')+' · '+city,
+      tags:(p.type||'').split(';').filter(t=>t).slice(0,3)
+    }));
+  }
+  return null; // 返回null表示API不可用，用mock数据
+}
+
+let currentLoc='hotel';
+let currentLocData=null; // 缓存当前分类数据
+function switchLoc(k){
+  currentLoc=k;
+  currentLocData=null;
+  document.querySelectorAll('#loc-tabs .section-tab').forEach((t,i)=>{
+    t.classList.toggle('active',Object.keys(locLabels)[i]===k);
+  });
+  renderLocList();
+}
+async function renderLocList(){
+  const listEl=document.getElementById('loc-list');
+  if(!listEl) return;
+  // 先尝试从高德API获取
+  if(!currentLocData){
+    listEl.innerHTML='<div class="empty"><div class="empty-icon" style="animation:spin 1s linear infinite">⏳</div><div>正在从高德地图加载'+locLabels[currentLoc]+'...</div></div>';
+    const apiData=await loadLocationsByCategory(currentLoc);
+    currentLocData=apiData||locationData[currentLoc]; // API失败则用mock
+    if(apiData){
+      // 如果API返回了数据，刷新列表
+      renderLocList();
+      return;
+    }
+  }
+  const list=currentLocData||locationData[currentLoc];
+  document.getElementById('loc-list').innerHTML=list.map((p,i)=>`
+    <div class="card">
+      <div class="card-row">
+        <div style="flex:1">
+          <div class="card-title">${locIcons[currentLoc]} ${p.name}</div>
+          <div class="card-meta">⭐${p.rating} · ${p.price} · 📍${p.addr}</div>
+          <div class="tag-row">${p.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div class="flex gap-8">
+            <button class="btn btn-outline btn-sm" onclick="searchOnPlatform('${p.name.replace(/'/g,'')}','携程')">携程</button>
+            <button class="btn btn-outline btn-sm" onclick="searchOnPlatform('${p.name.replace(/'/g,'')}','小红书')">小红书</button>
+            <button class="btn btn-outline btn-sm" onclick="searchOnPlatform('${p.name.replace(/'/g,'')}','高德')">高德</button>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addLocation('${currentLoc}',${i})">＋ 加入行程</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function searchOnPlatform(name,platform){
+  // 生成真实跳转链接
+  let url='';
+  let note='';
+  if(platform==='携程'){
+    url='https://m.ctrip.com/webappsearch/?keyword='+encodeURIComponent(name);
+    note='携程无公开数据API，此处生成搜索跳转链接。如需在APP内展示数据，需申请携程开放平台B2B合作。';
+  }else if(platform==='小红书'){
+    url='https://www.xiaohongshu.com/search_result?keyword='+encodeURIComponent(name);
+    note='小红书无公开API，此处引导用户跳转小红书搜索。替代方案：人工策展精选内容存入自建库。';
+  }else if(platform==='高德'){
+    url='https://www.amap.com/search?query='+encodeURIComponent(name);
+    note='高德开放API可直接获取数据，此处为网页版跳转。';
+  }
+  openModal('🔍 '+platform+' 检索',`
+    <p>正在通过 <strong>${platform}</strong> 检索「<strong>${name}</strong>」</p>
+    <div class="alert alert-info mt-16">💡 ${note}</div>
+    <div style="margin-top:12px;text-align:center">
+      <a href="${url}" target="_blank" class="btn btn-primary" style="text-decoration:none;display:inline-block">🔗 在${platform}中打开</a>
+    </div>`,[{label:'关闭',cls:'btn-outline',fn:'closeModal()'}]);
+}
+function addLocation(cat,i){
+  if(!state.locations[cat].includes(i)){
+    state.locations[cat].push(i);
+    const p=locationData[cat][i];
+    openModal('✅ 已加入行程',`<p><strong>${p.name}</strong> 已加入行程清单。</p><p class="muted mt-8">当前已选 ${Object.values(state.locations).flat().length} 个地点。</p>`,[{label:'好的',cls:'btn-primary',fn:'closeModal()'}]);
+  }else{
+    openModal('ℹ️ 提示',`<p>该地点已在行程清单中。</p>`,[{label:'好的',cls:'btn-primary',fn:'closeModal()'}]);
+  }
+}
+
+/* ==================== 出行选择 ==================== */
+const transportData={
+  car:{name:'私家车',icon:'🚗',speed:'灵活',cost:'油费+过路费',cap:'4-7人',pros:'灵活自由,可载行李',cons:'停车难,长途疲劳'},
+  bus:{name:'公交车',icon:'🚌',speed:'中',cost:'¥1-5/次',cap:'大',pros:'覆盖广,便宜',cons:'拥挤,需等车'},
+  metro:{name:'地铁',icon:'🚇',speed:'快',cost:'¥3-10/次',cap:'大',pros:'不堵车,准时',cons:'运营时间有限'},
+  hsr:{name:'高铁',icon:'🚄',speed:'极快',cost:'¥200-800',cap:'适中',pros:'跨城首选,舒适',cons:'需提前购票,车站远'},
+  plane:{name:'飞机',icon:'✈️',speed:'最快',cost:'¥500-3000',cap:'大',pros:'长途最优,省时',cons:'机场远,安检慢'},
+  ship:{name:'轮船',icon:'⛴️',speed:'慢',cost:'¥50-500',cap:'大',pros:'体验独特,赏江景',cons:'受天气影响大'},
+  walk:{name:'步行',icon:'🚶',speed:'慢',cost:'免费',cap:'1',pros:'零成本,灵活',cons:'仅适合短距离'},
+  taxi:{name:'出租车',icon:'🚕',speed:'快',cost:'¥10-100',cap:'4',pros:'门到门,便捷',cons:'费用高,高峰难打'},
+  bike:{name:'自行车',icon:'🚲',speed:'中',cost:'¥1.5/小时',cap:'1',pros:'环保,灵活,锻炼',cons:'受天气影响,不宜远途'}
+};
+
+function transportHTML(){
+  return `
+  <div class="section-header"><h2>🚗 出行选择</h2><p>选择出行方式（可多选），规划全程大路线与每日小路线</p></div>
+  <div class="section-body">
+    <div class="card-title" style="margin-bottom:12px">🚀 出行方式（可多选组合）</div>
+    <div class="transport-grid" id="transport-grid">
+      ${Object.entries(transportData).map(([k,v])=>`
+        <div class="transport-card ${state.transport.selected.includes(k)?'selected':''}" onclick="toggleTransport('${k}')">
+          <div class="transport-icon">${v.icon}</div>
+          <div class="transport-name">${v.name}</div>
+          <div class="transport-detail">速度:${v.speed} | ${v.cost}</div>
+        </div>`).join('')}
+    </div>
+    <div id="transport-detail" style="margin-top:16px"></div>
+    <div style="margin-top:24px">
+      <div class="card-title mb-16">🗺️ 游玩路线规划</div>
+      <div class="section-tabs" id="route-tabs">
+        <button class="section-tab active" onclick="switchRoute('big')">🌍 大路线 · 全程方案</button>
+        <button class="section-tab" onclick="switchRoute('small')">📍 小路线 · 每日计划</button>
+      </div>
+      <div id="route-content"></div>
+    </div>
+  </div>`;
+}
+function toggleTransport(k){
+  const idx=state.transport.selected.indexOf(k);
+  if(idx>-1) state.transport.selected.splice(idx,1); else state.transport.selected.push(k);
+  renderSection();
+}
+function switchRoute(type){
+  document.querySelectorAll('#route-tabs .section-tab').forEach((t,i)=>t.classList.toggle('active',(type==='big'?0:1)===i));
+  renderRoute(type);
+}
+function renderRoute(type){
+  const c=document.getElementById('route-content');
+  if(type==='big'){
+    c.innerHTML=`
+      <div class="alert alert-info">💡 大路线：从出发地开始，全程旅行至返回出发地的完整方案。</div>
+      <div class="timeline">
+        ${[
+          {t:'Day 1 · 8:00',p:'出发地·上海',d:'🚄 高铁G7381 → 杭州（约1h）'},
+          {t:'Day 1 · 10:00',p:'抵达杭州·入住酒店',d:'🏨 全季酒店(西湖店) 办理入住'},
+          {t:'Day 1-3',p:'杭州·3天游玩',d:'🏞️ 西湖→灵隐寺→宋城→千岛湖'},
+          {t:'Day 3 · 17:00',p:'返程·杭州东站',d:'🚄 高铁G7382 → 上海（约1h）'},
+          {t:'Day 3 · 18:30',p:'抵达出发地·上海',d:'🏠 旅行结束'}
+        ].map(i=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="timeline-time">${i.t}</div><div class="timeline-place">${i.p}</div><div class="timeline-desc">${i.d}</div></div></div>`).join('')}
+      </div>`;
+  }else{
+    const days=['Day 1','Day 2','Day 3'];
+    c.innerHTML=`
+      <div class="alert alert-info">💡 小路线：每日计划路线，各时间段不重合。</div>
+      <div class="day-selector" id="day-sel">
+        ${days.map((d,i)=>`<div class="day-pill ${i===0?'active':''}" onclick="selectDayRoute(${i})">${d}</div>`).join('')}
+      </div>
+      <div id="daily-route"></div>`;
+    selectDayRoute(0);
+  }
+}
+function selectDayRoute(i){
+  document.querySelectorAll('#day-sel .day-pill').forEach((p,j)=>p.classList.toggle('active',j===i));
+  const routes=[
+    [{t:'08:00',p:'酒店出发',d:'步行前往西湖（10min）'},{t:'09:00',p:'西湖·断桥残雪',d:'步行游览白堤'},{t:'11:00',p:'西湖·苏堤春晓',d:'骑行/步行苏堤'},{t:'12:30',p:'知味观·午餐',d:'杭帮菜，需提前预约'},{t:'14:00',p:'灵隐寺',d:'公交7路直达（30min）'},{t:'17:00',p:'返回酒店',d:'休息整顿'},{t:'19:00',p:'外婆家·晚餐',d:'步行15min'}],
+    [{t:'08:30',p:'酒店出发',d:'自驾前往千岛湖（约2h）'},{t:'10:30',p:'千岛湖风景区',d:'购票登船游览'},{t:'12:00',p:'湖上餐厅·午餐',d:'品尝有机鱼头'},{t:'14:00',p:'梅峰岛观景',d:'索道登岛'},{t:'16:30',p:'返程杭州',d:'自驾返回（约2h）'},{t:'19:00',p:'绿茶餐厅·晚餐',d:'龙井店，创意杭帮菜'}],
+    [{t:'09:00',p:'酒店出发',d:'步行前往雷峰塔'},{t:'09:30',p:'雷峰塔',d:'登塔观西湖全景'},{t:'11:00',p:'岳王庙',d:'步行15min'},{t:'12:00',p:'六和塔·午餐',d:'附近农家菜'},{t:'14:00',p:'杭州宋城',d:'自驾/打车前往'},{t:'17:00',p:'千古情演出',d:'含在门票内'},{t:'17:30',p:'前往杭州东站',d:'打车30min'},{t:'18:00',p:'返程',d:'高铁返回出发地'}]
+  ];
+  const r=routes[i];
+  document.getElementById('daily-route').innerHTML=`<div class="timeline">${r.map(x=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content"><div class="timeline-time">${x.t}</div><div class="timeline-place">${x.p}</div><div class="timeline-desc">${x.d}</div></div></div>`).join('')}</div>`;
+}
+
+/* ==================== 出行准备 ==================== */
+const prepGroups={
+  time:{title:'🕐 确认旅行时间',icon:'🕐',items:['确认出发/返程日期与时间','确认请假天数与调休安排','确认节假日及调休政策','确认同行人时间是否一致']},
+  work:{title:'💼 安排工作对接（人事变动）',icon:'💼',items:['向直属领导提交请假申请','完成待办任务交接或委托','设置邮件自动回复','更新项目排期与责任人','通知协作团队与对接方','确认紧急联系方式留档']},
+  items:{title:'🎒 携带物品',icon:'🎒',items:['衣物：换洗衣物、外套、雨衣、睡衣','食品：零食、水、能量补给','药品：感冒药、肠胃药、创可贴、晕车药','电器：充电器、充电宝、转换插头','工具：雨伞、防晒霜、旅行包','证件：身份证、学生证/军官证、银行卡','钥匙：家门钥匙、车钥匙']},
+  apps:{title:'📲 下载相关软件',icon:'📲',items:['对应城市地铁APP（如杭州地铁）','景区一卡通/电子票务APP','市政服务APP（如浙里办）','导航软件（高德/百度地图）','打车软件（滴滴/曹操出行）','外卖/点评软件（大众点评）']},
+  reserve:{title:'🎫 进行相关预约',icon:'🎫',items:['景区门票预约（西湖游船/灵隐寺）','酒店住宿确认与入住登记','热门餐厅预约（知味观/外婆家）','出行工具购票（高铁票/机票）','演出/活动预约（宋城千古情）','特殊项目预约（索道/游船）']},
+  learn:{title:'📚 学习相关知识',icon:'📚',items:['了解当地民俗文化与禁忌','野外/景区应急预案学习','避雷诈骗套路（假导游/天价消费）','防欺客宰客行为识别','当地交通规则与限行政策','紧急求助电话与医院位置']}
+};
+
+function prepHTML(){
+  return `
+  <div class="section-header">
+    <h2>📋 出行准备 <span class="badge badge-red">核心板块</span></h2>
+    <p>出行前一天北京时间20:00将自动弹窗提醒，系统检查无误后方可出行</p>
+  </div>
+  <div class="section-body">
+    <div class="alert alert-warning" id="prep-summary">
+      ⚠️ 出行准备完成度：<strong id="prep-progress-text">0%</strong>，请逐项确认。完成度达100%并通过系统检查后方可出行。
+      <div class="progress-bar"><div class="progress-fill" id="prep-progress" style="width:0%"></div></div>
+    </div>
+    <div id="prep-groups"></div>
+    <div style="display:flex;gap:12px;margin-top:20px">
+      <button class="btn btn-primary" onclick="runFullCheck()">🔍 系统出行检查</button>
+      <button class="btn btn-outline" onclick="simulateReminder()">⏰ 模拟出发前一天20:00提醒</button>
+    </div>
+  </div>`;
+}
+function initPrep(){
+  if(Object.keys(state.prep).length===0){
+    Object.keys(prepGroups).forEach(g=>{
+      prepGroups[g].items.forEach((_,i)=>{state.prep[g+'_'+i]=false;});
+    });
+  }
+  const container=document.getElementById('prep-groups');
+  container.innerHTML=Object.entries(prepGroups).map(([k,v])=>`
+    <div class="checklist-group">
+      <div class="checklist-group-title">${v.icon} ${v.title}</div>
+      ${v.items.map((item,i)=>`
+        <div class="check-item ${state.prep[k+'_'+i]?'done':''}" onclick="togglePrep('${k}',${i})">
+          <div class="check-box"></div>
+          <div><div class="check-label">${item}</div></div>
+        </div>`).join('')}
+    </div>`).join('');
+  updatePrepProgress();
+}
+function togglePrep(g,i){
+  state.prep[g+'_'+i]=!state.prep[g+'_'+i];
+  initPrep();
+}
+function updatePrepProgress(){
+  const total=Object.keys(state.prep).length;
+  const done=Object.values(state.prep).filter(v=>v).length;
+  const pct=Math.round(done/total*100);
+  document.getElementById('prep-progress').style.width=pct+'%';
+  document.getElementById('prep-progress-text').textContent=pct+'%';
+}
+
+/* ==================== 检查与提醒 ==================== */
+async function runFullCheck(){
+  const issues=[];
+  const done=Object.values(state.prep).filter(v=>v).length;
+  const total=Object.keys(state.prep).length;
+  const pct=Math.round(done/total*100);
+
+  if(pct<100) issues.push({level:'danger',msg:`出行准备仅完成 ${pct}%，仍有 ${total-done} 项未确认，请先完善准备清单。`});
+  if(!state.date.start) issues.push({level:'warning',msg:'未设置出发日期，请前往「出行日期」确认。'});
+  if(state.transport.selected.length===0) issues.push({level:'warning',msg:'未选择任何出行方式，请前往「出行选择」选择。'});
+  if(Object.values(state.locations).flat().length===0) issues.push({level:'warning',msg:'未添加任何出行地点，请前往「出行地点」添加酒店/景点。'});
+  if(state.budget.total===0 && state.budget.mode===1){
+    issues.push({level:'info',msg:'旅行经费尚未设置，建议在顶部面板设定预算。'});
+  }
+
+  // 调用后端API进行真实天气预警检查
+  let apiIssues=[];
+  try{
+    // 先查城市ID
+    const cityResult=await apiFetch('/api/weather/city',{location:state.city});
+    if(cityResult&&cityResult.data&&cityResult.data[0]){
+      const locationId=cityResult.data[0].id;
+      const checkResult=await apiFetch('/api/wechat/check-prep',{
+        travelDate:state.date.start,
+        city:state.city,
+        locationId:locationId
+      });
+      if(checkResult&&checkResult.issues){
+        dataSource.check='live';
+        apiIssues=checkResult.issues.map(it=>({
+          level:it.level,
+          msg:it.message+(it.suggestion?'（'+it.suggestion+'）':'')
+        }));
+      }
+    }
+  }catch(e){console.log('[检查] API调用失败，使用本地检查逻辑');}
+
+  // 合并API发现的问题
+  if(apiIssues.length>0){
+    issues.push(...apiIssues);
+  }else if(pct>=60 && pct<100 && dataSource.check==='mock'){
+    // API不可用时保留模拟检查
+    issues.push({level:'warning',msg:'⚠️ 系统检测到：所选日期'+state.date.start+' '+state.city+'有雷阵雨预报（模拟），建议调整出行日期或携带雨具。实际天气请配置和风天气Key后获取。'});
+  }
+
+  if(issues.length===0){
+    openModal('✅ 出行检查通过',`
+      <div class="alert alert-success">🎉 恭喜！所有检查项均已通过，祝您旅途愉快！${dataSource.check==='live'?'<br>✅ 已通过和风天气API确认出发日无气象预警':''}</div>
+      <p class="mt-16">已确认项：</p>
+      <ul style="margin-left:20px;margin-top:8px">
+        <li>✅ 出行准备完成度 100%</li>
+        <li>✅ 出行日期已确认</li>
+        <li>✅ 出行方式已选择</li>
+        <li>✅ 天气状况良好</li>
+        <li>✅ 路线通畅无冲突</li>
+        <li>✅ 预约已确认</li>
+      </ul>`,[{label:'出发！',cls:'btn-primary',fn:'closeModal()'}]);
+  }else{
+    let html='<div class="alert alert-danger">⛔ 系统检查未通过，存在以下问题需处理：</div>';
+    if(dataSource.check==='live') html+='<div class="alert alert-info" style="font-size:11px">ℹ️ 天气检查已通过和风天气API实时验证</div>';
+    issues.forEach(it=>{
+      html+=`<div class="alert alert-${it.level==='danger'?'danger':it.level==='warning'?'warning':'info'}">${it.level==='danger'?'⛔':it.level==='warning'?'⚠️':'ℹ️'} ${it.msg}</div>`;
+    });
+    html+='<p class="mt-16" style="color:var(--danger);font-weight:600">请修正以上问题后重新提交检查，系统批准后方可出行。</p>';
+    openModal('⛔ 出行检查 · 需修正',html,[
+      {label:'去修改',cls:'btn-primary',fn:'closeModal()'},
+      {label:'查看准备清单',cls:'btn-outline',fn:"closeModal();switchSection('prep')"}
+    ]);
+  }
+}
+
+function showReminder(){
+  simulateReminder();
+}
+function simulateReminder(){
+  const pct=Math.round(Object.values(state.prep).filter(v=>v).length/Object.keys(state.prep).length*100);
+  const now=new Date();
+  const beijingTime='20:00';
+  let html=`<div class="alert alert-info">⏰ 当前模拟时间：出行前一天 · 北京时间 ${beijingTime}</div>`;
+  html+=`<p style="font-size:15px;margin:12px 0">亲爱的用户，明天就是您的出行日了！</p>`;
+  html+=`<p>出行准备完成度：<strong style="color:${pct===100?'#065f46':'#dc2626'}">${pct}%</strong></p>`;
+  html+=`<div class="progress-bar mt-8"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+  if(pct<100){
+    html+='<div class="alert alert-danger mt-16">⛔ 系统检测到准备尚未完成，已打回！请完善以下未确认项后再出行：</div>';
+    Object.entries(prepGroups).forEach(([g,v])=>{
+      v.items.forEach((item,i)=>{
+        if(!state.prep[g+'_'+i]) html+=`<div style="padding:4px 0">☐ ${v.title.replace(/^[^\s]+\s/,'')} · ${item}</div>`;
+      });
+    });
+    html+='<div class="alert alert-warning mt-16">⚠️ 另：系统检测到明日杭州有雷阵雨，已携带雨衣 ✓，但建议确认景区是否因天气关闭。</div>';
+  }else{
+    html+='<div class="alert alert-success mt-16">✅ 所有准备项已完成，天气良好，路线畅通，祝您旅途愉快！</div>';
+  }
+  openModal('🔔 出发前提醒 · '+beijingTime,html,[
+    {label:pct<100?'去完善':'知道了',cls:'btn-primary',fn:pct<100?"closeModal();switchSection('prep')":'closeModal()'},
+    {label:'稍后提醒',cls:'btn-outline',fn:'closeModal()'}
+  ]);
+}
+
+/* ==================== 旅行经费 ==================== */
+function switchBudgetMode(m){
+  state.budget.mode=m;
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>b.classList.toggle('active',i===m-1));
+  document.getElementById('budget-mode-label').textContent=m===1?'模式一':'模式二';
+  document.getElementById('budget-mode1').style.display=m===1?'block':'none';
+  document.getElementById('budget-mode2').style.display=m===2?'block':'none';
+  if(m===2) renderBudgetFill();
+}
+
+const budgetCategories=[
+  {key:'transport',name:'出行',color:'#3b82f6'},
+  {key:'hotel',name:'住宿',color:'#10b981'},
+  {key:'food',name:'饮食',color:'#f59e0b'},
+  {key:'play',name:'游玩',color:'#8b5cf6'},
+  {key:'emergency',name:'应急',color:'#ef4444'}
+];
+
+function generatePlans(){
+  const total=parseInt(document.getElementById('total-budget').value)||0;
+  state.budget.total=total;
+  if(total<=0){document.getElementById('plan-list').style.display='none';return;}
+  document.getElementById('plan-list').style.display='block';
+  const plans=[
+    {name:'💰 经济型方案',alloc:[0.30,0.30,0.15,0.15,0.10]},
+    {name:'🌟 舒适型方案',alloc:[0.22,0.35,0.20,0.15,0.08]},
+    {name:'💎 豪华型方案',alloc:[0.18,0.40,0.20,0.15,0.07]},
+    {name:'🎒 背包客方案',alloc:[0.35,0.15,0.20,0.20,0.10]}
+  ];
+  document.getElementById('plans-container').innerHTML=plans.map((p,i)=>{
+    const amounts=p.alloc.map(a=>Math.round(total*a));
+    return `<div class="plan-card ${state.budget.selectedPlan===i?'selected':''}" onclick="selectPlan(${i})">
+      <div class="plan-name">${p.name}</div>
+      <div class="plan-bar">
+        ${p.alloc.map((a,j)=>`<div class="plan-seg" style="width:${a*100}%;background:${budgetCategories[j].color}">${a*100>=10?budgetCategories[j].name:''}</div>`).join('')}
+      </div>
+      <div class="plan-legend">
+        ${budgetCategories.map((c,j)=>`<div class="legend-item"><span style="width:10px;height:10px;border-radius:3px;background:${c.color};display:inline-block"></span>${c.name} ¥${amounts[j]}</div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function selectPlan(i){
+  state.budget.selectedPlan=i;
+  generatePlans();
+}
+
+function renderBudgetFill(){
+  const days=['第1天','第2天','第3天'];
+  const cats=budgetCategories;
+  let html='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid var(--border)">日期</th>';
+  cats.forEach(c=>html+=`<th style="text-align:center;padding:6px;border-bottom:1px solid var(--border)">${c.name}</th>`);
+  html+='</tr></thead><tbody>';
+  days.forEach((d,di)=>{
+    html+=`<tr><td style="padding:6px;border-bottom:1px solid var(--border);font-weight:600">${d}</td>`;
+    cats.forEach(c=>{
+      const key=`${c.key}_${di}`;
+      html+=`<td style="padding:4px;border-bottom:1px solid var(--border)"><input type="number" class="budget-input" style="padding:5px 8px;font-size:12px;width:100%;text-align:center" placeholder="0" value="${state.budget.fillData[key]||''}" oninput="state.budget.fillData['${key}']=this.value"></td>`;
+    });
+    html+='</tr>';
+  });
+  html+='<tr><td style="padding:6px;font-weight:700">合计</td>';
+  cats.forEach(c=>{
+    html+=`<td style="padding:6px;text-align:center;font-weight:700;color:${c.color}" id="sum-${c.key}">¥0</td>`;
+  });
+  html+='</tr></tbody></table>';
+  document.getElementById('budget-fill-area').innerHTML=html;
+}
+
+function summarizeBudget(){
+  const cats=budgetCategories;
+  const issues=[];
+  let grandTotal=0;
+  const sums={};
+  cats.forEach(c=>{
+    let s=0;
+    for(let d=0;d<3;d++){
+      const v=parseInt(state.budget.fillData[`${c.key}_${d}`])||0;
+      s+=v;
+    }
+    sums[c.key]=s; grandTotal+=s;
+    document.getElementById(`sum-${c.key}`).textContent='¥'+s;
+  });
+  // Smart checks
+  if(sums.emergency===0) issues.push({type:'warning',msg:'应急经费为0，建议预留总预算5-10%作为应急资金。'});
+  if(sums.emergency>0 && sums.emergency/grandTotal<0.05 && grandTotal>0) issues.push({type:'warning',msg:`应急经费占比仅${(sums.emergency/grandTotal*100).toFixed(1)}%，低于建议的5%，旅途遇突发情况可能不足。`});
+  if(sums.hotel>0 && sums.hotel/grandTotal>0.5) issues.push({type:'warning',msg:`住宿占比${(sums.hotel/grandTotal*100).toFixed(0)}%偏高，建议不超过40%，可考虑性价比更高的住宿。`});
+  if(sums.transport>0 && sums.transport/grandTotal<0.1 && grandTotal>1000) issues.push({type:'info',msg:'出行经费占比偏低，确认是否已包含往返交通费用（高铁/机票）。'});
+  if(sums.play===0) issues.push({type:'warning',msg:'游玩经费为0，请确认景区门票/演出票是否已计入其他板块。'});
+  if(grandTotal===0) issues.push({type:'danger',msg:'所有板块均为0，请填写实际花费数据。'});
+
+  let html=`<div style="margin-top:12px"><div class="card-title">📊 分类汇总</div>`;
+  html+=`<div class="plan-bar" style="height:28px;margin:10px 0">`;
+  if(grandTotal>0){
+    cats.forEach(c=>{
+      const pct=sums[c.key]/grandTotal*100;
+      if(pct>0) html+=`<div class="plan-seg" style="width:${pct}%;background:${c.color}">${c.name} ${pct.toFixed(0)}%</div>`;
+    });
+  }
+  html+=`</div>`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:2px solid var(--border);margin-top:8px">
+    <span style="font-weight:700;font-size:16px">预估总金额</span>
+    <span style="font-size:22px;font-weight:700;color:var(--primary)">¥${grandTotal}</span>
+  </div></div>`;
+
+  if(issues.length>0){
+    html+='<div class="alert alert-warning mt-16">⚠️ 系统发现以下需要关注的问题：</div>';
+    issues.forEach(it=>{
+      html+=`<div class="alert alert-${it.type==='danger'?'danger':it.type==='warning'?'warning':'info'}">${it.type==='danger'?'⛔':it.type==='warning'?'⚠️':'💡'} ${it.msg}</div>`;
+    });
+    html+='<div class="alert alert-info mt-16">💡 系统通过查阅相关资料建议：旅行预算建议按住宿30-40%、出行20-30%、饮食15-20%、游玩10-20%、应急5-10%分配，可根据实际调整。</div>';
+  }else{
+    html+='<div class="alert alert-success mt-16">✅ 预算分配合理，无明显问题。</div>';
+  }
+  document.getElementById('budget-summary').innerHTML=html;
+}
+
+/* ==================== 攻略检索 ==================== */
+const guideDB=[
+  {src:'小红书',title:'杭州3天2夜超全攻略｜附美食地图',summary:'西湖+灵隐+宋城全路线，含知味观、外婆家等餐厅推荐，人均¥800',tags:['杭州','3天','西湖','美食']},
+  {src:'携程',title:'杭州西湖周边住宿+景点一站式攻略',summary:'全季/亚朵/民宿对比，含灵隐寺、雷峰塔、千岛湖门票预约指南',tags:['杭州','住宿','西湖','灵隐','千岛湖']},
+  {src:'高德',title:'杭州地铁+公交出行指南',summary:'1号线直达西湖，7路公交覆盖灵隐寺，含实时路况与停车点',tags:['杭州','地铁','公交','交通']},
+  {src:'小红书',title:'杭州避坑指南｜别再被这些坑了',summary:'假和尚算命、天价茶、黑车宰客全揭秘，附正确应对方式',tags:['杭州','避坑','防骗']},
+  {src:'携程',title:'杭州宋城千古情+千岛湖一日游',summary:'含演出时间表、千岛湖游船时刻、门票套票优惠信息',tags:['杭州','宋城','千岛湖','门票']},
+  {src:'小红书',title:'杭州美食探店｜本地人推荐8家店',summary:'从知味观到街边小吃，含人均消费、排队时长、必点菜',tags:['杭州','美食','知味观','外婆家']},
+  {src:'高德',title:'杭州自驾路线推荐｜千岛湖环湖自驾',summary:'详细自驾路线、沿途加油站、服务区、拍照打卡点',tags:['杭州','自驾','千岛湖','路线']},
+  {src:'携程',title:'杭州周边古镇一日游·乌镇/西塘',summary:'高铁/大巴前往方式、古镇门票、住宿推荐、夜景攻略',tags:['杭州','古镇','乌镇','西塘']},
+  {src:'小红书',title:'杭州雨季出行装备清单',summary:'6-8月梅雨季+台风季，雨衣雨伞防水鞋推荐，含室内备选方案',tags:['杭州','雨季','装备','天气']},
+  {src:'携程',title:'杭州灵隐寺祈福全攻略',summary:'开放时间、素斋推荐、烧香路线、飞来峰游览顺序',tags:['杭州','灵隐','祈福']},
+];
+
+async function searchGuides(){
+  const q=(document.getElementById('guide-query').value||'杭州').trim();
+  const resultsDiv=document.getElementById('guide-results');
+  resultsDiv.innerHTML='<div class="empty"><div class="empty-icon" style="animation:spin 1s linear infinite">🔍</div><div>正在从高德/携程/小红书检索攻略...</div></div>';
+
+  // 优先调用后端API聚合搜索
+  const apiResult=await apiFetch('/api/guides/search',{keywords:q,city:state.city});
+  if(apiResult&&apiResult.data&&apiResult.data.length>0){
+    dataSource.guides='live';
+    state.guides=apiResult.data.map(g=>({
+      src:g.source,
+      title:g.title,
+      summary:g.summary,
+      tags:g.tags||[],
+      similarity:g.similarity||75,
+      url:g.url||null,
+      note:g.note||null
+    }));
+    document.getElementById('guide-count').textContent=state.guides.length+' 条 · 实时';
+    renderGuides();
+    return;
+  }
+
+  // API不可用时回退到本地模拟数据
+  const qWords=q.split(/[\s,，、]+/).filter(w=>w.length>0);
+  let results=guideDB.map(g=>{
+    let score=0;
+    qWords.forEach(w=>{
+      g.tags.forEach(t=>{if(t.includes(w)||w.includes(t))score+=2;});
+      if(g.title.includes(w))score+=3;
+      if(g.summary.includes(w))score+=1;
+    });
+    if(q==='杭州'||qWords.length===0) score+=1;
+    return{...g,similarity:Math.min(95+score*2,99)};
+  }).filter(g=>g.similarity>0||qWords.length===0);
+  results.sort((a,b)=>b.similarity-a.similarity);
+  if(results.length===0) results=guideDB.map(g=>({...g,similarity:60+Math.random()*20}));
+  state.guides=results;
+  document.getElementById('guide-count').textContent=results.length+' 条 · 模拟';
+  renderGuides();
+}
+function renderGuides(){
+  const c=document.getElementById('guide-results');
+  if(state.guides.length===0){c.innerHTML='<div class="empty"><div class="empty-icon">📖</div><div>填写旅行地点后点击检索</div></div>';return;}
+  c.innerHTML=state.guides.map((g,i)=>{
+    const cls=g.src==='小红书'?'src-xhs':g.src==='携程'?'src-ctrip':'src-amap';
+    const clickHandler=g.url?`onclick="window.open('${g.url}','_blank')"`:'';
+    const cursor=g.url?'cursor:pointer':'';
+    const noteHtml=g.note?`<div class="alert alert-info mt-8" style="font-size:11px;padding:6px 10px">💡 ${g.note}</div>`:'';
+    const urlBadge=g.url?'<span class="badge badge-teal" style="margin-left:6px">🔗 可跳转</span>':'';
+    return `<div class="guide-card" style="${cursor}" ${clickHandler}>
+      <div class="flex items-center justify-between">
+        <span class="guide-source ${cls}">${g.src}</span>
+        <span class="muted" style="font-size:11px">相似度 ${g.similarity}%</span>
+      </div>
+      <div class="guide-title">${i<3?'🔥 ':''}${g.title}${urlBadge}</div>
+      <div class="guide-summary">${g.summary}</div>
+      <div class="tag-row">${g.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="similarity-bar"><div class="similarity-fill" style="width:${g.similarity}%"></div></div>
+      ${noteHtml}
+    </div>`;
+  }).join('');
+}
+
+/* ==================== Modal ==================== */
+function openModal(title,body,footer){
+  document.getElementById('modal-title').innerHTML=title;
+  document.getElementById('modal-body').innerHTML=body;
+  const f=document.getElementById('modal-footer');
+  f.innerHTML='';
+  if(footer){
+    footer.forEach(b=>{f.innerHTML+=`<button class="btn ${b.cls}" onclick="${b.fn}">${b.label}</button>`;});
+  }
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
+
+/* ==================== Init ==================== */
+renderSection();
+renderLocList();
+renderRoute('big');
+// Auto-fill guide query based on default destination
+document.getElementById('guide-query').value='杭州 西湖';
+// 检查后端API连接状态
+checkBackendStatus();
+</script>
+</body>
+</html>

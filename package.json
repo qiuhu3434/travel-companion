@@ -1,0 +1,22 @@
+{
+  "name": "travel-companion",
+  "version": "1.0.0",
+  "description": "悠行 - 出行游玩规划助手后端服务，聚合高德地图/和风天气/微信/携程等API",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "node-cache": "^5.1.2",
+    "serverless-http": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
