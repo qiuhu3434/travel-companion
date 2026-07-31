@@ -25,7 +25,8 @@ const requestCounts = {};
 app.use((req, res, next) => {
   // 只限制 /api 路径
   if (!req.path.startsWith('/api/')) return next();
-  const ip = req.ip || req.connection.remoteAddress;
+  // 兼容 Serverless 环境（Vercel 下 req.connection 可能不存在）
+  const ip = req.ip || (req.connection && req.connection.remoteAddress) || req.headers['x-forwarded-for'] || 'unknown';
   const now = Date.now();
   if (!requestCounts[ip] || now - requestCounts[ip].resetTime > 60000) {
     requestCounts[ip] = { count: 0, resetTime: now };
