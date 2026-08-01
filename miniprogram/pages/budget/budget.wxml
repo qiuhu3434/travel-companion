@@ -1,0 +1,81 @@
+<!-- 悠行 - 旅行经费 -->
+<view class="page-container">
+
+  <!-- 模式切换 -->
+  <view class="card">
+    <view style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn {{mode === 'auto' ? 'btn-primary' : 'btn-outline'}} btn-sm" bindtap="switchMode" data-mode="auto">
+        🤖 自动分配
+      </button>
+      <button class="btn {{mode === 'manual' ? 'btn-primary' : 'btn-outline'}} btn-sm" bindtap="switchMode" data-mode="manual">
+        ✍️ 手动填写
+      </button>
+    </view>
+
+    <!-- 自动分配模式 -->
+    <view wx:if="{{mode === 'auto'}}">
+      <view class="field-label">旅行总预算</view>
+      <view style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+        <text style="font-size:20px;font-weight:700">¥</text>
+        <input class="input" type="digit" value="{{totalBudget}}" bindinput="onTotalInput" style="flex:1" />
+        <button class="btn btn-primary btn-sm" bindtap="autoAllocate">分配</button>
+      </view>
+
+      <!-- 各项预算条 -->
+      <view wx:for="{{budgetItems}}" wx:key="name" class="budget-item-row">
+        <view class="budget-item-name">{{item.name}}</view>
+        <view class="budget-item-bar">
+          <view class="budget-item-fill" style="width:{{item.percent}}%;background:{{item.color}}"></view>
+        </view>
+        <view class="budget-item-amount">
+          ¥{{item.amount}}
+          <view style="font-size:10px;color:var(--text-muted);font-weight:400">
+            {{item.percent}}%
+          </view>
+        </view>
+      </view>
+
+      <!-- 总额 -->
+      <view style="text-align:right;margin-top:12px;font-size:16px;font-weight:700">
+        合计：¥{{totalAllocated}}
+      </view>
+    </view>
+
+    <!-- 手动填写模式 -->
+    <view wx:else>
+      <view wx:for="{{budgetItems}}" wx:key="name" class="budget-item-row">
+        <view class="budget-item-name">{{item.name}}</view>
+        <view style="flex:1;display:flex;align-items:center;gap:8px">
+          <text>¥</text>
+          <input class="input" type="digit" value="{{item.amount}}" data-index="{{index}}" bindinput="onManualInput" style="flex:1;text-align:right" />
+        </view>
+      </view>
+      <view style="text-align:right;margin-top:12px;font-size:16px;font-weight:700">
+        合计：¥{{totalAllocated}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 消费记录（简易） -->
+  <view class="card">
+    <view class="card-title">💳 消费记录</view>
+    <view wx:for="{{budgetItems}}" wx:key="name" style="margin-bottom:12px">
+      <view style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <text style="font-weight:600">{{item.name}}</text>
+        <text>
+          <text wx:if="{{item.spent > item.amount}}" style="color:var(--danger)">超支</text>
+          <text wx:else style="color:var(--text-light)">剩余</text>
+          ¥{{item.amount - item.spent}}
+        </text>
+      </view>
+      <view class="progress-bar">
+        <view class="progress-fill" style="width:{{item.spentPercent}}%;background:{{item.spent > item.amount ? 'var(--danger)' : 'var(--success)'}}"></view>
+      </view>
+      <view style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:2px">
+        <text>已花 ¥{{item.spent}}</text>
+        <text>预算 ¥{{item.amount}}</text>
+      </view>
+    </view>
+  </view>
+
+</view>

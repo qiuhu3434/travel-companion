@@ -1,0 +1,76 @@
+<!-- 悠行 - 交通选择 -->
+<view class="page-container">
+
+  <!-- ====== 9种交通方式卡片 ====== -->
+  <view class="card">
+    <view class="card-title">🚗 选择出行方式</view>
+    <view class="transport-grid">
+      <view wx:for="{{transportList}}" wx:key="id"
+        class="transport-card {{selectedId === item.id ? 'selected' : ''}}"
+        bindtap="selectTransport" data-id="{{item.id}}">
+        <text class="t-icon">{{item.icon}}</text>
+        <view class="t-name">{{item.name}}</view>
+        <view class="t-info">{{item.speed}} · {{item.cost}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 选中详情 ====== -->
+  <view wx:if="{{selected}}" class="card">
+    <view class="card-title">{{selected.icon}} {{selected.name}} · 详情</view>
+
+    <view style="display:flex;gap:16px;margin-bottom:16px">
+      <view style="flex:1">
+        <view class="field-label">速度</view>
+        <view>{{selected.speed}}</view>
+      </view>
+      <view style="flex:1">
+        <view class="field-label">费用估算</view>
+        <view>{{selected.cost}}</view>
+      </view>
+      <view style="flex:1">
+        <view class="field-label">容量</view>
+        <view>{{selected.cap}}人</view>
+      </view>
+    </view>
+
+    <!-- 优缺点 -->
+    <view class="grid-2" style="margin-bottom:12px">
+      <view>
+        <view class="field-label" style="color:#16a34a">👍 优点</view>
+        <view wx:for="{{selected.pros}}" wx:key="*this" class="tag tag-green" style="margin:2px">{{item}}</view>
+      </view>
+      <view>
+        <view class="field-label" style="color:#ef4444">👎 缺点</view>
+        <view wx:for="{{selected.cons}}" wx:key="*this" class="tag tag-red" style="margin:2px">{{item}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 路线规划（模拟） ====== -->
+  <view wx:if="{{selected}}" class="card">
+    <view class="card-title">🗺️ 推荐路线</view>
+    <view class="alert alert-info">
+      从 {{city}} 出发，选择{{selected.name}}出行
+      <text wx:if="{{selected.id === 'highspeed' || selected.id === 'train'}}">
+        建议提前在12306购票
+      </text>
+      <text wx:elif="{{selected.id === 'plane'}}">
+        建议提前2小时到达机场
+      </text>
+    </view>
+    <view style="margin-top:8px">
+      <view wx:for="{{routes}}" wx:key="time" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        <text>🕐 {{item.time}}</text>
+        <text style="color:var(--text-light)">{{item.info}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ====== 未选择状态 ====== -->
+  <view wx:else class="empty-state">
+    <text class="empty-icon">🚀</text>
+    <text>点击上方卡片选择出行方式</text>
+  </view>
+
+</view>

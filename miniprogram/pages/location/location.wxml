@@ -1,0 +1,60 @@
+<!-- 悠行 - 地点搜索 -->
+<view class="page-container">
+
+  <!-- 搜索框 -->
+  <view class="card">
+    <view class="search-bar">
+      <input class="input" placeholder="搜索酒店/餐厅/景点..." value="{{keyword}}" bindinput="onKeywordInput" bindconfirm="doSearch" />
+      <button class="btn btn-primary btn-sm" bindtap="doSearch">搜索</button>
+    </view>
+
+    <!-- 类型筛选 -->
+    <view class="tag-picker">
+      <view class="tag {{activeType === '全部' ? 'active' : ''}}" bindtap="switchType" data-type="全部">全部</view>
+      <view class="tag {{activeType === '景点' ? 'active' : ''}}" bindtap="switchType" data-type="景点">景点</view>
+      <view class="tag {{activeType === '酒店' ? 'active' : ''}}" bindtap="switchType" data-type="酒店">酒店</view>
+      <view class="tag {{activeType === '餐厅' ? 'active' : ''}}" bindtap="switchType" data-type="餐厅">餐厅</view>
+    </view>
+
+    <!-- 数据来源提示 -->
+    <view wx:if="{{dataSourceHint}}" class="alert alert-info" style="margin-top:8px;margin-bottom:0">
+      {{dataSourceHint}}
+    </view>
+  </view>
+
+  <!-- 结果列表 -->
+  <view wx:if="{{list.length > 0}}">
+    <view class="card">
+      <view class="card-title">📍 搜索结果（{{list.length}} 条）</view>
+      <view wx:for="{{list}}" wx:key="name" class="poi-item">
+        <view class="poi-icon-box">
+          <text>{{item.type === '酒店' ? '🏨' : item.type === '餐厅' ? '🍽️' : '🏛️'}}</text>
+        </view>
+        <view class="poi-detail">
+          <view class="poi-name">{{item.name}}
+            <text wx:if="{{item.rating}}" class="tag tag-yellow" style="margin-left:6px">★ {{item.rating}}</text>
+          </view>
+          <view class="poi-addr">{{item.address}}</view>
+          <view class="poi-meta">
+            <text>{{item.type}}</text>
+            <text wx:if="{{item.tel}}">📞 {{item.tel}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{searched && list.length === 0}}" class="empty-state">
+    <text class="empty-icon">🗺️</text>
+    <text>没有找到「{{keyword}}」相关的地点</text>
+    <text style="font-size:12px;display:block;margin-top:8px">试试换个关键词，或检查城市名称</text>
+  </view>
+
+  <view wx:else class="empty-state">
+    <text class="empty-icon">🔍</text>
+    <text>输入关键词搜索酒店、餐厅、景点</text>
+    <text style="font-size:12px;display:block;margin-top:8px">当前城市：{{city}}</text>
+  </view>
+
+</view>

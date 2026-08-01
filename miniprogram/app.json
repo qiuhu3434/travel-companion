@@ -1,0 +1,53 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/location/location",
+    "pages/transport/transport",
+    "pages/prep/prep",
+    "pages/budget/budget",
+    "pages/guides/guides"
+  ],
+  "window": {
+    "navigationBarTitleText": "悠行",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f0f4f8"
+  },
+  "tabBar": {
+    "color": "#94a3b8",
+    "selectedColor": "#0ea5e9",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "出行",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/location/location",
+        "text": "地点",
+        "iconPath": "images/tab-location.png",
+        "selectedIconPath": "images/tab-location-active.png"
+      },
+      {
+        "pagePath": "pages/transport/transport",
+        "text": "交通",
+        "iconPath": "images/tab-transport.png",
+        "selectedIconPath": "images/tab-transport-active.png"
+      },
+      {
+        "pagePath": "pages/prep/prep",
+        "text": "准备",
+        "iconPath": "images/tab-prep.png",
+        "selectedIconPath": "images/tab-prep-active.png"
+      }
+    ]
+  },
+  "requiredPrivateInfos": [],
+  "permission": {},
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

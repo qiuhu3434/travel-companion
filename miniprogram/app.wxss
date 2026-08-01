@@ -1,0 +1,540 @@
+/* 悠行 - 全局样式 */
+
+page {
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #1e293b;
+  --text-light: #64748b;
+  --text-muted: #94a3b8;
+  --primary: #0ea5e9;
+  --primary-dark: #0284c7;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --border: #e2e8f0;
+
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* 卡片 */
+.card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+/* 输入框 */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+  background: #f8fafc;
+  color: var(--text);
+}
+
+.input:focus {
+  border-color: var(--primary);
+  background: #fff;
+}
+
+/* 搜索框 */
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.search-bar .input {
+  flex: 1;
+}
+
+/* 按钮 */
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+
+.btn:active {
+  opacity: 0.8;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--primary);
+  color: var(--primary);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
+/* 标签 */
+.tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--bg);
+  color: var(--text-light);
+  display: inline-block;
+}
+
+.tag-blue {
+  background: #e0f2fe;
+  color: var(--primary-dark);
+}
+
+.tag-green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.tag-red {
+  background: #fee2e2;
+  color: var(--danger);
+}
+
+.tag-yellow {
+  background: #fef3c7;
+  color: #ca8a04;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 标签选择器 */
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tag-picker .tag {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  transition: all 0.2s;
+}
+
+.tag-picker .tag.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* 天气卡片 */
+.weather-box {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: 12px;
+  padding: 20px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.weather-temp {
+  font-size: 40px;
+  font-weight: 300;
+}
+
+.weather-info {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* 预报行 */
+.forecast-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 4px 0;
+}
+
+.forecast-card {
+  flex-shrink: 0;
+  width: 90px;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px 4px;
+  text-align: center;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+  display: inline-block;
+}
+
+.forecast-card.active {
+  border-color: var(--primary);
+  background: #e0f2fe;
+}
+
+.fc-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.fc-icon {
+  font-size: 28px;
+  display: block;
+  margin: 4px 0;
+}
+
+.fc-range {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fc-desc {
+  font-size: 10px;
+  color: var(--text-light);
+}
+
+.fc-wind {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.fc-badge {
+  display: inline-block;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  margin-left: 4px;
+}
+
+/* 提示条 */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.alert-info {
+  background: #e0f2fe;
+  color: var(--primary-dark);
+}
+
+.alert-success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.alert-warning {
+  background: #fef3c7;
+  color: #ca8a04;
+}
+
+.alert-danger {
+  background: #fee2e2;
+  color: var(--danger);
+}
+
+/* 勾选清单 */
+.checklist {
+  list-style: none;
+  padding: 0;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+.checklist-item:last-child {
+  border-bottom: none;
+}
+
+.checklist-item .checkbox {
+  width: 20px;
+  height: 20px;
+}
+
+.checklist-item .item-text {
+  flex: 1;
+  font-size: 14px;
+}
+
+.checklist-item .item-text.checked {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* 进度条 */
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+/* 交通方式卡片 */
+.transport-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.transport-card {
+  background: #f8fafc;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 8px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.transport-card:active {
+  transform: scale(0.96);
+}
+
+.transport-card.selected {
+  border-color: var(--primary);
+  background: #e0f2fe;
+}
+
+.transport-card .t-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.transport-card .t-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.transport-card .t-info {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* POI列表 */
+.poi-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.poi-item:last-child {
+  border-bottom: none;
+}
+
+.poi-icon-box {
+  width: 44px;
+  height: 44px;
+  background: var(--bg);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.poi-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.poi-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.poi-addr {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poi-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+/* 预算 */
+.budget-item-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+.budget-item-row:last-child {
+  border-bottom: none;
+}
+
+.budget-item-name {
+  width: 50px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.budget-item-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.budget-item-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.budget-item-amount {
+  width: 70px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 攻略 */
+.guide-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+
+.guide-card .guide-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.guide-card .guide-summary {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* 字段标签 */
+.field-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+/* 页面容器 */
+.page-container {
+  padding: 16px;
+  padding-bottom: 32px;
+}
+
+/* 两列网格 */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 48px;
+  opacity: 0.3;
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* 浮动操作按钮 */
+.fab {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+  z-index: 100;
+}
+
+.fab:active {
+  background: var(--primary-dark);
+}

@@ -1,0 +1,45 @@
+<!-- 悠行 - 攻略检索 -->
+<view class="page-container">
+
+  <!-- 搜索框 -->
+  <view class="card">
+    <view class="search-bar">
+      <input class="input" placeholder="搜索攻略：城市+天数+主题..." value="{{keyword}}" bindinput="onKeywordInput" bindconfirm="doSearch" />
+      <button class="btn btn-primary btn-sm" bindtap="doSearch">搜索</button>
+    </view>
+    <view class="tag-row" style="margin-top:8px">
+      <view class="tag" wx:for="{{hotTags}}" wx:key="*this" bindtap="quickSearch" data-tag="{{item}}">{{item}}</view>
+    </view>
+  </view>
+
+  <!-- 结果列表 -->
+  <view wx:if="{{list.length > 0}}">
+    <view class="card">
+      <view class="card-title">📖 搜索结果
+        <text wx:if="{{dataSource === 'live'}}" class="tag tag-blue">实时</text>
+      </view>
+      <view wx:for="{{list}}" wx:key="title" class="guide-card">
+        <view class="guide-title">{{item.title}}</view>
+        <view class="guide-summary">{{item.summary}}</view>
+        <view class="tag-row">
+          <view class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</view>
+          <view class="tag tag-blue" style="margin-left:auto">{{item.src}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{searched && list.length === 0}}" class="empty-state">
+    <text class="empty-icon">📚</text>
+    <text>没有找到「{{keyword}}」相关的攻略</text>
+    <text style="font-size:12px;display:block;margin-top:8px">试试搜索：杭州、三日游、美食</text>
+  </view>
+
+  <view wx:else class="empty-state">
+    <text class="empty-icon">🔍</text>
+    <text>输入关键词搜索旅行攻略</text>
+    <text style="font-size:12px;display:block;margin-top:8px">支持：城市名、天数、主题、美食等</text>
+  </view>
+
+</view>

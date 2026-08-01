@@ -1,0 +1,81 @@
+<!-- 悠行 - 出行准备 -->
+<view class="page-container">
+
+  <!-- ====== 出行清单 ====== -->
+  <view class="card">
+    <view class="card-title">🎒 出行准备清单</view>
+
+    <!-- 进度条 -->
+    <view style="margin-bottom:16px">
+      <view style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px">
+        <text>准备进度</text>
+        <text>{{checkedCount}} / {{checklist.length}}</text>
+      </view>
+      <view class="progress-bar">
+        <view class="progress-fill" style="width:{{progressPercent}}%"></view>
+      </view>
+    </view>
+
+    <!-- 分类展示 -->
+    <view wx:for="{{categories}}" wx:key="name" style="margin-bottom:16px">
+      <view style="font-size:13px;font-weight:600;color:var(--text-light);margin-bottom:8px">
+        {{item.icon}} {{item.name}}
+      </view>
+      <view wx:for="{{item.items}}" wx:for-item="ci" wx:key="id" class="checklist-item">
+        <checkbox value="{{ci.id}}" checked="{{ci.checked}}" bindtap="toggleCheck" data-id="{{ci.id}}" />
+        <view class="item-text {{ci.checked ? 'checked' : ''}}" bindtap="toggleCheck" data-id="{{ci.id}}">
+          {{ci.text}}
+        </view>
+        <text class="tag" style="font-size:10px">{{ci.category}}</text>
+      </view>
+    </view>
+
+    <!-- 一键重置 -->
+    <button class="btn btn-outline btn-sm" bindtap="resetAll" style="margin-top:8px;width:100%">
+      🔄 重置全部
+    </button>
+  </view>
+
+  <!-- ====== 快速添加 ====== -->
+  <view class="card">
+    <view class="card-title">➕ 快速添加物品</view>
+    <view class="search-bar">
+      <input class="input" placeholder="输入物品名称（如防晒霜）" value="{{newItemText}}" bindinput="onNewItemInput" />
+      <button class="btn btn-primary btn-sm" bindtap="addCustomItem">添加</button>
+    </view>
+    <!-- 推荐快捷添加 -->
+    <view class="tag-row" style="margin-top:8px">
+      <view class="tag" wx:for="{{quickAdds}}" wx:key="*this" bindtap="quickAdd" data-text="{{item}}">+ {{item}}</view>
+    </view>
+  </view>
+
+  <!-- ====== 系统智能检查 ====== -->
+  <view class="card">
+    <view class="card-title">🔍 系统智能检查</view>
+    <button class="btn btn-primary" bindtap="runSystemCheck" style="width:100%">
+      ▶️ 开始检查
+    </button>
+
+    <!-- 检查结果 -->
+    <view wx:if="{{checkResult}}" style="margin-top:16px">
+      <view wx:if="{{checkResult.allPassed}}" class="alert alert-success">
+        🎉 恭喜！所有检查项均已通过，祝您旅途愉快！
+        <text wx:if="{{checkResult.apiChecked}}">✅ 已通过和风天气API确认出发日无气象预警</text>
+      </view>
+
+      <view wx:else>
+        <view wx:for="{{checkResult.issues}}" wx:key="msg" class="alert {{item.level === 'danger' ? 'alert-danger' : 'alert-warning'}}">
+          {{item.level === 'danger' ? '🔴' : '⚠️'}} {{item.msg}}
+        </view>
+        <view class="alert alert-info">
+          💡 请完成以上问题后重新检查。确保所有物品齐全、路线畅通。
+        </view>
+      </view>
+
+      <view wx:if="{{checkResult.apiChecked}}" class="alert alert-info" style="font-size:11px;margin-top:8px">
+        ℹ️ 天气检查已通过和风天气API实时验证
+      </view>
+    </view>
+  </view>
+
+</view>
