@@ -188,7 +188,7 @@ Page({
         { slot: 'dinner', time: '17:30-19:00', label: '晚餐', icon: '🥘', poi: { name: selFood[(d + 1) % selFood.length] || defaultRests[(d + 3) % 6].name, address: '' }, isMeal: true },
         { slot: 'evening', time: '19:00-21:00', label: '晚间活动', icon: '🌙', poi: { name: '自由探索/散步', address: '' } },
       ];
-      daily.push({ day: d + 1, date: '第' + (d + 1) + '天', schedule: spots });
+      daily.push({ day: d + 1, date: '第' + (d + 1) + '天', schedule: spots, connections: [] });
     }
 
     return {

@@ -157,19 +157,40 @@ async function qweatherCity(cityName) {
 }
 
 async function qweatherForecast(locationId) {
-  if (!QWEATHER_KEY) return [];
+  if (!QWEATHER_KEY) {
+    return { forecast: [], error: 'QWEATHER_KEY_NOT_SET', hint: '和风天气Key未配置（QWEATHER_KEY为空）' };
+  }
   try {
     const resp = await axios.get(`${QWEATHER_BASE}/v7/weather/7d`, {
       params: { location: locationId, key: QWEATHER_KEY }, timeout: 8000,
     });
-    if (resp.data.code !== '200') return [];
-    return (resp.data.daily || []).map(d => ({
+    if (resp.data.code !== '200') {
+      const isAuthError = ['401', '403'].includes(resp.data.code);
+      return {
+        forecast: [],
+        error: isAuthError ? 'QWEATHER_AUTH_FAILED' : 'QWEATHER_API_ERROR',
+        hint: isAuthError
+          ? `和风天气返回 ${resp.data.code}：Key无效或API Host不匹配。2024年起和风要求使用专属API Host，请在控制台「设置」页查看形如 abc123def.re.qweatherapi.com 的专属域名，配置到环境变量 QWEATHER_HOST`
+          : `和风天气返回错误码 ${resp.data.code}`
+      };
+    }
+    const forecast = (resp.data.daily || []).map(d => ({
       date: d.fxDate, textDay: d.textDay, textNight: d.textNight,
       tempMax: d.tempMax, tempMin: d.tempMin,
       windDirDay: d.windDirDay, windScaleDay: d.windScaleDay,
       humidity: d.humidity, precip: d.precip,
     }));
-  } catch (e) { return []; }
+    return { forecast, error: null, hint: null };
+  } catch (e) {
+    const is403 = e.response && e.response.status === 403;
+    return {
+      forecast: [],
+      error: 'QWEATHER_REQUEST_FAILED',
+      hint: is403
+        ? '403错误：和风天气API Host不匹配。请在控制台「设置」页查看专属域名并配置 QWEATHER_HOST'
+        : `和风天气请求失败：${e.message}`
+    };
+  }
 }
 
 /* ================================================================
@@ -330,8 +351,15 @@ router.post('/generate', async (req, res) => {
     });
 
     // 天气预报
-    let forecast = [];
-    if (qCity) forecast = await qweatherForecast(qCity.id);
+    let forecastRes;
+    if (!QWEATHER_KEY) {
+      forecastRes = { forecast: [], error: 'QWEATHER_KEY_NOT_SET', hint: '和风天气Key未配置（QWEATHER_KEY为空），请在 https://dev.qweather.com/ 注册获取并配置专属API Host' };
+    } else if (!qCity) {
+      forecastRes = { forecast: [], error: 'QWEATHER_CITY_NOT_FOUND', hint: '未找到该城市的天气数据，请检查城市名称' };
+    } else {
+      forecastRes = await qweatherForecast(qCity.id);
+    }
+    const forecast = forecastRes.forecast || [];
 
     // ---- 景点地理聚类 ----
     const geoAttrs = attractions.filter(a => a.lng !== null && a.lat !== null);
@@ -397,7 +425,7 @@ router.post('/generate', async (req, res) => {
       // 早餐
       schedule.push({
         slot: 'breakfast', time: '08:00-09:00', label: '早餐', icon: '🍳',
-        poi: { name: '酒店早餐/当地早餐店', address: '' },
+        poi: { name: '酒店早餐/当地早餐店', address: '', lng: null, lat: null },
       });
 
       // 上午景点
@@ -405,7 +433,7 @@ router.post('/generate', async (req, res) => {
         schedule.push({
           slot: i === 0 ? 'morning1' : 'morning2',
           ...slots[i === 0 ? 'morning1' : 'morning2'],
-          poi: { name: s.name, address: s.address, rating: s.rating },
+          poi: { name: s.name, address: s.address, rating: s.rating, lng: s.lng, lat: s.lat },
           tip: !canOutdoor && !s.indoor ? '注意带伞' : (isHot && !s.indoor ? '注意防晒' : null),
           indoor: s.indoor,
         });
@@ -415,8 +443,8 @@ router.post('/generate', async (req, res) => {
       schedule.push({
         slot: 'lunch', ...slots.lunch,
         poi: lunchSpot
-          ? { name: lunchSpot.name, address: lunchSpot.address, rating: lunchSpot.rating, cost: lunchSpot.cost }
-          : { name: restaurants[d % restaurants.length]?.name || '当地特色餐厅', address: '' },
+          ? { name: lunchSpot.name, address: lunchSpot.address, rating: lunchSpot.rating, cost: lunchSpot.cost, lng: lunchSpot.lng, lat: lunchSpot.lat }
+          : { name: restaurants[d % restaurants.length]?.name || '当地特色餐厅', address: '', lng: null, lat: null },
         tip: lunchSpot && lunchSpot.cost ? costLabel(lunchSpot.cost) : null,
         isMeal: true,
       });
@@ -426,7 +454,7 @@ router.post('/generate', async (req, res) => {
         schedule.push({
           slot: i === 0 ? 'afternoon1' : 'afternoon2',
           ...slots[i === 0 ? 'afternoon1' : 'afternoon2'],
-          poi: { name: s.name, address: s.address, rating: s.rating },
+          poi: { name: s.name, address: s.address, rating: s.rating, lng: s.lng, lat: s.lat },
           tip: isHot && !s.indoor ? '注意防晒补水' : null,
           indoor: s.indoor,
         });
@@ -437,8 +465,8 @@ router.post('/generate', async (req, res) => {
       schedule.push({
         slot: 'dinner', ...slots.dinner,
         poi: dinnerSpot
-          ? { name: dinnerSpot.name, address: dinnerSpot.address, rating: dinnerSpot.rating, cost: dinnerSpot.cost }
-          : { name: restaurants[dinnerIdx]?.name || '热门餐厅', address: '' },
+          ? { name: dinnerSpot.name, address: dinnerSpot.address, rating: dinnerSpot.rating, cost: dinnerSpot.cost, lng: dinnerSpot.lng, lat: dinnerSpot.lat }
+          : { name: restaurants[dinnerIdx]?.name || '热门餐厅', address: '', lng: null, lat: null },
         tip: dinnerSpot && dinnerSpot.cost ? costLabel(dinnerSpot.cost) : null,
         isMeal: true,
       });
@@ -447,10 +475,13 @@ router.post('/generate', async (req, res) => {
       schedule.push({
         slot: 'evening', ...slots.evening,
         poi: eveningActivity
-          ? { name: eveningActivity.name, address: eveningActivity.address }
-          : { name: canOutdoor ? '散步/自由探索' : (isHot ? '夜风纳凉' : '室内休闲'), address: '' },
+          ? { name: eveningActivity.name, address: eveningActivity.address, lng: eveningActivity.lng, lat: eveningActivity.lat }
+          : { name: canOutdoor ? '散步/自由探索' : (isHot ? '夜风纳凉' : '室内休闲'), address: '', lng: null, lat: null },
         tip: canOutdoor ? '享受夜晚' : (isHot ? '凉爽好时光' : '注意保暖'),
       });
+
+      // ---- 计算相邻节点之间的交通连接 ----
+      const connections = await buildConnections(schedule, city);
 
       dailyPlans.push({
         day: d + 1,
@@ -461,6 +492,7 @@ router.post('/generate', async (req, res) => {
           wind: `${dayWeather.windDirDay}${dayWeather.windScaleDay}级`,
         } : null,
         schedule,
+        connections,
       });
     }
 
@@ -471,6 +503,8 @@ router.post('/generate', async (req, res) => {
       source: attractions.length >= days ? '实时数据' : '部分实时+模板',
       poisSource: `景点${attractions.length}个，餐厅${restaurants.length}个`,
       weatherAvailable: forecast.length > 0,
+      weatherError: forecastRes.error,
+      weatherHint: forecastRes.hint,
       selections: {
         food: selFood.slice(0, 6),
         outdoor: selOutdoor.slice(0, 6),
@@ -517,6 +551,162 @@ function calcCenter(pois) {
   return {
     lng: valid.reduce((s, p) => s + p.lng, 0) / valid.length,
     lat: valid.reduce((s, p) => s + p.lat, 0) / valid.length,
+  };
+}
+
+/** 为每日 schedule 生成相邻节点之间的交通连接 */
+async function buildConnections(schedule, city) {
+  const connections = [];
+  for (let i = 0; i < schedule.length - 1; i++) {
+    const from = schedule[i].poi;
+    const to = schedule[i + 1].poi;
+    if (!from || !to || from.lng == null || from.lat == null || to.lng == null || to.lat == null) {
+      connections.push(null); // 节点坐标缺失时不显示交通连接
+      continue;
+    }
+    const route = await amapTransitRoute(
+      { lng: from.lng, lat: from.lat },
+      { lng: to.lng, lat: to.lat },
+      city
+    );
+    if (route) {
+      connections.push(formatTransitRoute(route));
+    } else {
+      connections.push(fallbackTransitAdvice(from, to));
+    }
+  }
+  return connections;
+}
+
+/** 调用高德公交路径规划（v3） */
+async function amapTransitRoute(origin, destination, city) {
+  if (!AMAP_KEY || !origin || !destination) return null;
+  try {
+    const resp = await axios.get('https://restapi.amap.com/v3/direction/transit/integrated', {
+      params: {
+        key: AMAP_KEY,
+        origin: `${origin.lng},${origin.lat}`,
+        destination: `${destination.lng},${destination.lat}`,
+        city,
+        cityd: city,
+        strategy: 0, // 最快捷模式
+        extensions: 'all',
+      },
+      timeout: 10000,
+    });
+    if (resp.data.status !== '1' || !resp.data.route || !resp.data.route.transits || !resp.data.route.transits.length) {
+      return null;
+    }
+    const transit = resp.data.route.transits[0];
+    return {
+      duration: parseInt(transit.duration) || 0, // 秒
+      distance: parseInt(transit.distance) || 0, // 米
+      walkingDistance: parseInt(transit.walking_distance) || 0,
+      segments: (transit.segments || []).map(seg => {
+        const walking = seg.walking || {};
+        const busLine = seg.bus && seg.bus.buslines && seg.bus.buslines[0];
+        const railway = seg.railway || {};
+        return {
+          walkingDistance: parseInt(walking.distance) || 0,
+          walkingDuration: parseInt(walking.duration) || 0,
+          line: busLine ? busLine.name : (railway.name || null),
+          lineType: busLine ? (busLine.type || '公交') : (railway.name ? '火车/地铁' : null),
+          departure: busLine && busLine.departure_stop ? busLine.departure_stop.name : (railway.departure_stop || null),
+          arrival: busLine && busLine.arrival_stop ? busLine.arrival_stop.name : (railway.arrival_stop || null),
+          viaNum: busLine ? parseInt(busLine.via_num) || 0 : 0,
+        };
+      }).filter(s => s.line || s.walkingDistance > 0),
+    };
+  } catch (e) {
+    console.error('[Plan] 公交路径规划失败:', e.message);
+    return null;
+  }
+}
+
+/** 把高德公交结果格式化成易读文本 */
+function formatTransitRoute(route) {
+  const durationMin = Math.max(1, Math.round(route.duration / 60));
+  const distanceKm = (route.distance / 1000).toFixed(1);
+  const segments = route.segments || [];
+
+  // 判断主要交通方式
+  let mode = 'bus';
+  const hasSubway = segments.some(s => s.line && /地铁|轨道/.test(s.line));
+  if (hasSubway) mode = 'subway';
+
+  // 生成摘要：如 地铁1号线 → 步行300米
+  const summaries = [];
+  segments.forEach((s, idx) => {
+    if (s.line) {
+      summaries.push(`${s.line}（${s.viaNum || 0}站）`);
+    } else if (s.walkingDistance > 0) {
+      summaries.push(`步行${(s.walkingDistance).toFixed(0)}米`);
+    }
+  });
+
+  // 生成详情：包含上下车站和出站指引
+  let detail = '';
+  const rideSegments = segments.filter(s => s.line);
+  if (rideSegments.length > 0) {
+    const first = rideSegments[0];
+    detail = `从「${first.departure || '起点'}」乘${first.line}`;
+    if (rideSegments.length > 1) {
+      const last = rideSegments[rideSegments.length - 1];
+      detail += `，到「${last.arrival || '终点'}」下车`;
+    } else {
+      detail += `，到「${first.arrival || '终点'}」下车`;
+    }
+    const walkSeg = segments.find(s => s.walkingDistance > 0 && s.line == null);
+    if (walkSeg) {
+      detail += `；下车后步行约${Math.max(1, Math.round(walkSeg.walkingDuration / 60))}分钟到达`;
+    }
+  } else if (route.walkingDistance > 0) {
+    detail = `全程步行约${(route.walkingDistance).toFixed(0)}米`;
+  }
+
+  return {
+    mode,
+    text: `${mode === 'subway' ? '地铁' : '公交'}约 ${durationMin} 分钟 · ${distanceKm}公里`,
+    distance: `${distanceKm}公里`,
+    duration: `${durationMin}分钟`,
+    detail: detail || '建议出站后跟随导航步行',
+    summary: summaries.join(' → '),
+  };
+}
+
+/** 公交规划失败时，根据直线距离给出回退建议 */
+function fallbackTransitAdvice(from, to) {
+  const dist = distanceKm(from.lng, from.lat, to.lng, to.lat);
+  const walkMinutes = Math.max(5, Math.round(dist * 15)); // 步行约15分钟/公里
+  if (dist < 1) {
+    return {
+      mode: 'walk',
+      text: `步行约 ${walkMinutes} 分钟`,
+      distance: `${(dist * 1000).toFixed(0)}米`,
+      duration: `${walkMinutes}分钟`,
+      detail: '距离较近，建议步行前往；也可骑共享单车',
+      summary: '步行',
+    };
+  }
+  if (dist < 4) {
+    const busMin = Math.round(dist * 8 + 10); // 公交含等车
+    return {
+      mode: 'bus',
+      text: `公交/地铁约 ${busMin} 分钟`,
+      distance: `${dist.toFixed(1)}公里`,
+      duration: `${busMin}分钟`,
+      detail: '可查询附近公交/地铁线路，或打车更快',
+      summary: '公交/地铁',
+    };
+  }
+  const taxiMin = Math.round(dist * 4 + 5); // 打车约4分钟/公里+起步
+  return {
+    mode: 'taxi',
+    text: `打车约 ${taxiMin} 分钟`,
+    distance: `${dist.toFixed(1)}公里`,
+    duration: `${taxiMin}分钟`,
+    detail: '距离较远，建议打车或乘坐地铁',
+    summary: '打车/地铁',
   };
 }
 

@@ -237,6 +237,12 @@ input,select,textarea{font-family:inherit}
 .itinerary-name{font-weight:600;font-size:13px}
 .itinerary-addr{font-size:11px;color:var(--text-muted)}
 .itinerary-tip{font-size:11px;color:var(--primary);margin-top:2px}
+.itinerary-transit{display:flex;align-items:flex-start;gap:10px;padding:8px 0 8px 90px;margin-left:0;border-left:2px dashed var(--border)}
+.itinerary-transit .transit-icon{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:14px;margin-left:-40px}
+.itinerary-transit .transit-content{flex:1;background:#f8fafc;border-radius:8px;padding:8px 12px;border:1px solid var(--border)}
+.itinerary-transit .transit-title{font-size:12px;font-weight:600;color:var(--primary-dark)}
+.itinerary-transit .transit-detail{font-size:11px;color:var(--text-light);margin-top:2px}
+.itinerary-transit .transit-summary{font-size:10px;color:var(--text-muted);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)}
 .plan-controls{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:16px}
 .plan-source-tag{font-size:11px;padding:2px 8px;border-radius:6px;display:inline-block}
 .src-live{background:#d1fae5;color:#065f46}
@@ -1401,7 +1407,9 @@ function planHTML(){
             ${day.weather?`<div style="font-size:13px">${day.weather.icon} ${day.weather.text} ${day.weather.tempMin}°~${day.weather.tempMax}° ${day.weather.wind||''}</div>`:''}
           </div>
           <div class="day-itinerary-body">
-            ${day.schedule.map(s=>`
+            ${day.schedule.map((s,idx)=>{
+              const conn=day.connections&&day.connections[idx];
+              return `
               <div class="itinerary-step">
                 <div class="itinerary-time">${s.time}</div>
                 <div class="itinerary-label">${s.icon} ${s.label}${s.isMeal?'<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px;margin-left:4px">饭点</span>':''}</div>
@@ -1411,11 +1419,13 @@ function planHTML(){
                   ${s.tip?`<div class="itinerary-tip">💡 ${s.tip}</div>`:''}
                 </div>
               </div>
-            `).join('')}
+              ${conn?renderTransit(conn):''}
+              `;
+            }).join('')}
           </div>
         </div>
       `).join('')}
-      ${!r.weatherAvailable?`<div class="alert alert-info mt-16">ℹ️ 天气数据不可用。配置和风天气Key后可获得更精准规划。</div>`:''}
+      ${!r.weatherAvailable?`<div class="alert alert-info mt-16">ℹ️ ${r.weatherHint || '天气数据不可用。配置和风天气Key后可获得更精准规划。'}</div>`:''}
     `;
   }
 
@@ -1456,6 +1466,20 @@ function planHTML(){
     <div id="plan-result">${resultHtml}</div>
     ${!p.result&&!rec?`<div class="empty"><div class="empty-icon">🧠</div><div>输入目的地 → 获取推荐 → 勾选想去的地方 → 生成行程<br><span style="font-size:12px">餐厅固定在午餐/晚餐时间，不会塞进景点列表</span></div></div>`:''}
   </div>`;
+}
+
+function renderTransit(conn){
+  const icons={walk:'🚶',bus:'🚌',subway:'🚇',taxi:'🚕',mixed:'🚇',unknown:'🚗'};
+  const modeName={walk:'步行',bus:'公交',subway:'地铁',taxi:'打车',mixed:'地铁+公交',unknown:'导航'};
+  return `
+    <div class="itinerary-transit">
+      <div class="transit-icon">${icons[conn.mode]||'🚗'}</div>
+      <div class="transit-content">
+        <div class="transit-title">${modeName[conn.mode]||conn.mode} · ${conn.text}</div>
+        <div class="transit-detail">${conn.detail}</div>
+        ${conn.summary?`<div class="transit-summary">🗺️ ${conn.summary}</div>`:''}
+      </div>
+    </div>`;
 }
 
 function switchRecTab(key){
@@ -1595,10 +1619,9 @@ function generateFallbackPlanLocal(city,days,selections){
       {slot:'dinner',time:'17:30-19:00',label:'晚餐',icon:'🥘',poi:{name:selFood[(d+1)%selFood.length]||defaultRestaurants[(d+3)%6].name,address:''},isMeal:true},
       {slot:'evening',time:'19:00-21:00',label:'晚间活动',icon:'🌙',poi:{name:'自由探索/散步',address:''}},
     ];
-    daily.push({day:d+1,date:'第'+(d+1)+'天',schedule:spots});
+    daily.push({day:d+1,date:'第'+(d+1)+'天',schedule:spots,connections:[]});
   }
   return daily;
-}
 }
 renderSection();
 renderLocList();

@@ -91,6 +91,9 @@
     <view wx:if="{{result.weatherAvailable}}" class="alert alert-info">
       🌤️ 已根据实时天气预报智能调整行程
     </view>
+    <view wx:if="{{!result.weatherAvailable && result.weatherHint}}" class="alert alert-info">
+      ℹ️ {{result.weatherHint}}
+    </view>
 
     <view wx:if="{{result.budgetPerDay}}" class="alert alert-info">
       💰 日均预算约 ¥{{result.budgetPerDay}}
@@ -104,21 +107,31 @@
       </view>
 
       <view class="day-body">
-        <view wx:for="{{item.schedule}}" wx:for-item="s" wx:key="slot" class="timeline-step">
-          <view class="step-time">{{s.time}}</view>
-          <view class="step-label">
-            {{s.icon}} {{s.label}}
-            <text wx:if="{{s.isMeal}}" style="font-size:9px;background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px;margin-left:4px">饭点</text>
-          </view>
-          <view class="step-content">
-            <view class="step-name">
-              {{s.poi.name}}
-              <text wx:if="{{s.poi.cost}}" style="font-size:10px;color:var(--text-muted)">{{s.poi.cost}}元/人</text>
+        <block wx:for="{{item.schedule}}" wx:for-item="s" wx:for-index="sIdx" wx:key="slot">
+          <view class="timeline-step">
+            <view class="step-time">{{s.time}}</view>
+            <view class="step-label">
+              {{s.icon}} {{s.label}}
+              <text wx:if="{{s.isMeal}}" style="font-size:9px;background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px;margin-left:4px">饭点</text>
             </view>
-            <view wx:if="{{s.poi.address}}" class="step-addr">📍 {{s.poi.address}}</view>
-            <view wx:if="{{s.tip}}" class="step-tip">💡 {{s.tip}}</view>
+            <view class="step-content">
+              <view class="step-name">
+                {{s.poi.name}}
+                <text wx:if="{{s.poi.cost}}" style="font-size:10px;color:var(--text-muted)">{{s.poi.cost}}元/人</text>
+              </view>
+              <view wx:if="{{s.poi.address}}" class="step-addr">📍 {{s.poi.address}}</view>
+              <view wx:if="{{s.tip}}" class="step-tip">💡 {{s.tip}}</view>
+            </view>
           </view>
-        </view>
+          <view wx:if="{{item.connections && item.connections[sIdx]}}" class="transit-step">
+            <view class="transit-icon">{{item.connections[sIdx].mode==='walk'?'🚶':item.connections[sIdx].mode==='subway'?'🚇':item.connections[sIdx].mode==='taxi'?'🚕':'🚌'}}</view>
+            <view class="transit-content">
+              <view class="transit-title">{{item.connections[sIdx].text}}</view>
+              <view class="transit-detail">{{item.connections[sIdx].detail}}</view>
+              <view wx:if="{{item.connections[sIdx].summary}}" class="transit-summary">🗺️ {{item.connections[sIdx].summary}}</view>
+            </view>
+          </view>
+        </block>
       </view>
     </view>
   </view>

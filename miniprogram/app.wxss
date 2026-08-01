@@ -683,6 +683,60 @@ page {
   margin-top: 2px;
 }
 
+/* 交通连接 */
+.transit-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0 8px 88px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.transit-step:last-child {
+  border-bottom: none;
+}
+
+.transit-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  margin-left: -36px;
+}
+
+.transit-content {
+  flex: 1;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+}
+
+.transit-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.transit-detail {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.transit-summary {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+
 /* 空状态 */
 .empty {
   text-align: center;
