@@ -1,15 +1,15 @@
 /**
- * 智能行程规划路由 — 纯规则引擎，不依赖 AI
+ * 智能行程规划路由 v2 — 三列表推荐 + 整合规划
  *
- * 输入：目的地 + 天数 + 偏好 + 预算
- * 输出：完整的每日行程（上午景点 → 午餐 → 下午景点 → 晚餐 → 晚间）
+ * 两阶段设计：
+ *   1. POST /api/plan/recommend — 拉取三类POI分类推荐列表（美食/户外/人文）
+ *   2. POST /api/plan/generate  — 用户勾选后，整合为每日行程（餐厅=饭点，不=景点）
  *
- * 核心算法三步：
- *   1. 地理聚类 — 距离 3km 内的景点分到同一天，少跑冤枉路
- *   2. 天气匹配 — 下雨天排室内（博物馆/商场），晴天排户外（公园/山水）
- *   3. 节奏编排 — 上午 2 景 → 午餐 → 下午 2 景 → 晚餐 → 晚间
- *
- * 与 AI 生成的区别：这是确定性 if-else 逻辑，审核不触发算法备案。
+ * 核心规则（纯确定性逻辑，无需AI/算法备案）：
+ *   - 景点按地理聚类（3km内同天），少跑冤枉路
+ *   - 餐厅固定 12:00 午餐 + 18:00 晚餐，就近匹配当天景点
+ *   - 天气自适应：雨→室内优先、>35°C→午间避暑
+ *   - 每半天 1-2 景，节奏自然
  */
 const express = require('express');
 const axios = require('axios');
@@ -26,71 +26,53 @@ const QWEATHER_GEO = process.env.QWEATHER_HOST
   : 'https://geoapi.qweather.com';
 
 /* ================================================================
- *  常量定义
+ *  常量
  * ================================================================ */
 
-// 高德 POI 类型编码
 const POI_TYPES = {
-  scenic:    '110000', // 风景名胜
-  culture:   '140000', // 科教文化（博物馆、图书馆等）
-  food:      '050000', // 餐饮服务
-  shopping:  '060000', // 购物服务
-  hotel:     '100000', // 住宿服务（星级酒店）
-  entertain: '160000', // 娱乐休闲（主题公园、游乐场等）
+  scenic:   '110000', // 风景名胜
+  culture:  '140000', // 科教文化
+  food:     '050000', // 餐饮
+  shopping: '060000', // 购物
+  park:     '110100', // 公园广场
 };
 
-// 偏好 → 搜索关键词映射
-const PREFERENCE_KEYWORDS = {
-  foodie:   ['美食街', '特色小吃', '本地菜', '网红餐厅'],
-  culture:  ['博物馆', '历史古迹', '老街', '寺庙', '名人故居'],
-  outdoor:  ['自然风光', '登山', '公园', '湖景', '徒步'],
+// 三列表搜索策略
+const SEARCH_PLANS = {
+  food: [
+    { kw: '本地菜', type: POI_TYPES.food },
+    { kw: '老字号', type: POI_TYPES.food },
+    { kw: '网红餐厅', type: POI_TYPES.food },
+    { kw: '小吃街', type: POI_TYPES.food },
+  ],
+  outdoor: [
+    { kw: '公园', type: '' },
+    { kw: '山', type: POI_TYPES.scenic },
+    { kw: '湖', type: POI_TYPES.scenic },
+    { kw: '自然风光', type: POI_TYPES.scenic },
+  ],
+  culture: [
+    { kw: '博物馆', type: POI_TYPES.culture },
+    { kw: '古迹', type: POI_TYPES.culture },
+    { kw: '寺庙', type: POI_TYPES.culture },
+    { kw: '名人故居', type: POI_TYPES.culture },
+  ],
 };
 
-// 偏好 → 额外 POI 类型
-const PREFERENCE_EXTRA_TYPES = {
-  foodie:   [POI_TYPES.food, POI_TYPES.shopping],
-  culture:  [POI_TYPES.culture],
-  outdoor:  [POI_TYPES.scenic],
-};
-
-// 天气 → 室内/室外判断
-function isOutdoorFriendly(text) {
-  const bad = ['雨', '雪', '沙', '尘', '霾', '暴', '雾'];
-  return !bad.some(w => (text || '').includes(w));
+// 餐厅人均价位标签
+function costLabel(cost) {
+  if (!cost) return '';
+  const c = parseFloat(cost);
+  if (c < 50) return '💰平价';
+  if (c < 100) return '💰适中';
+  if (c < 200) return '💰小资';
+  return '💰高档';
 }
-
-function isHotDay(tempMax) {
-  return parseInt(tempMax) >= 35;
-}
-
-// 活动模板
-const TIME_SLOTS = {
-  breakfast:  { time: '08:00-09:00', label: '早餐', icon: '🍳' },
-  morning1:   { time: '09:00-10:30', label: '上午景点①', icon: '🏛️' },
-  morning2:   { time: '10:30-12:00', label: '上午景点②', icon: '📍' },
-  lunch:      { time: '12:00-13:30', label: '午餐', icon: '🍽️' },
-  afternoon1: { time: '13:30-15:30', label: '下午景点①', icon: '🎯' },
-  afternoon2: { time: '15:30-17:30', label: '下午景点②', icon: '📸' },
-  dinner:     { time: '17:30-19:00', label: '晚餐', icon: '🥘' },
-  evening:    { time: '19:00-21:00', label: '晚间活动', icon: '🌙' },
-};
-
-// 炎热天气下午调整
-const HOT_DAY_SLOTS = {
-  morning1:   { time: '07:30-10:00', label: '上午景点①', icon: '🏛️' },
-  morning2:   { time: '10:00-12:00', label: '室内参观', icon: '🏢', hint: '高温避暑' },
-  lunch:      { time: '12:00-13:30', label: '午餐', icon: '🍽️' },
-  afternoon1: { time: '13:30-15:00', label: '午休/室内', icon: '😴', hint: '高温时段' },
-  afternoon2: { time: '15:30-17:30', label: '下午景点', icon: '📸' },
-  dinner:     { time: '17:30-19:00', label: '晚餐', icon: '🥘' },
-  evening:    { time: '19:00-21:00', label: '晚间活动', icon: '🌙' },
-};
 
 /* ================================================================
  *  工具函数
  * ================================================================ */
 
-// 两点距离（单位 km，Haversine 公式）
 function distanceKm(lng1, lat1, lng2, lat2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -101,7 +83,6 @@ function distanceKm(lng1, lat1, lng2, lat2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// 将经纬度字符串 "lng,lat" 拆开
 function parseLocation(locStr) {
   if (!locStr) return null;
   const parts = locStr.split(',');
@@ -109,7 +90,6 @@ function parseLocation(locStr) {
   return { lng: parseFloat(parts[0]), lat: parseFloat(parts[1]) };
 }
 
-// 智能天气图标
 function weatherIcon(text) {
   const t = (text || '').toLowerCase();
   if (t.includes('雨')) return '🌧️';
@@ -120,80 +100,31 @@ function weatherIcon(text) {
   return '🌤️';
 }
 
-// 按偏好给 POI 打分（用于排序）
-function scorePoi(poi, preference) {
-  const name = (poi.name || '').toLowerCase();
-  const type = (poi.type || '').toLowerCase();
-  let score = 0;
-
-  switch (preference) {
-    case 'foodie':
-      if (type.includes('餐饮') || type.includes('美食')) score += 10;
-      if (type.includes('购物') || type.includes('商业')) score += 5;
-      if (name.includes('小吃') || name.includes('美食')) score += 8;
-      break;
-    case 'culture':
-      if (type.includes('博物馆') || type.includes('文化') || type.includes('科教')) score += 10;
-      if (name.includes('博物馆') || name.includes('寺') || name.includes('庙')) score += 8;
-      if (name.includes('故居') || name.includes('遗址') || name.includes('古城')) score += 6;
-      break;
-    case 'outdoor':
-      if (type.includes('风景') || type.includes('公园') || type.includes('自然')) score += 10;
-      if (name.includes('山') || name.includes('湖') || name.includes('公园')) score += 8;
-      if (name.includes('徒步') || name.includes('骑行')) score += 6;
-      break;
-  }
-
-  // 有评分加权
-  if (poi.rating) score += parseFloat(poi.rating) * 2;
-  // 有电话 → 更可能是正规商户
-  if (poi.tel) score += 2;
-
-  return score;
+function isOutdoorFriendly(text) {
+  const bad = ['雨', '雪', '沙', '尘', '霾', '暴', '雾'];
+  return !bad.some(w => (text || '').includes(w));
 }
 
-// 判断景点是否偏室内
+function isHotDay(tempMax) {
+  return parseInt(tempMax) >= 35;
+}
+
 function isIndoor(poi) {
-  const indoorKeywords = ['博物馆', '展览', '图书馆', '商场', '购物', '室内', '电影', '剧院', '艺术馆', '纪念馆'];
+  const indoorKeywords = ['博物馆', '展览', '图书馆', '商场', '购物',
+    '室内', '电影', '剧院', '艺术馆', '纪念馆', '寺庙'];
   const name = (poi.name || '') + (poi.type || '');
   return indoorKeywords.some(k => name.includes(k));
 }
 
-// 高德 POI → 统一格式
-function normalizePoi(p) {
-  const loc = parseLocation(p.location);
-  return {
-    name: p.name,
-    address: p.address,
-    lng: loc ? loc.lng : null,
-    lat: loc ? loc.lat : null,
-    type: p.type,
-    tel: p.tel || null,
-    rating: p.rating || null,
-    cost: p.cost || null,
-    indoor: isIndoor(p),
-  };
-}
-
 /* ================================================================
- *  API 调用封装（内部直接调用，不走自身路由）
+ *  高德 / 和风天气 内部调用
  * ================================================================ */
 
-// 高德 POI 搜索
-async function amapPoi(keywords, city, types) {
+async function amapSearch(keywords, city, types) {
   if (!AMAP_KEY) return [];
   try {
     const resp = await axios.get('https://restapi.amap.com/v3/place/text', {
-      params: {
-        key: AMAP_KEY,
-        keywords,
-        city,
-        citylimit: true,
-        types: types || '',
-        offset: 15,
-        page: 1,
-        extensions: 'all',
-      },
+      params: { key: AMAP_KEY, keywords, city, citylimit: true, types: types || '', offset: 12, page: 1, extensions: 'all' },
       timeout: 8000,
     });
     if (resp.data.status !== '1') return [];
@@ -205,369 +136,421 @@ async function amapPoi(keywords, city, types) {
       tel: p.tel || null,
       rating: (p.bizext && p.bizext.rating) ? p.bizext.rating : null,
       cost: (p.bizext && p.bizext.cost) ? p.bizext.cost : null,
+      photos: p.photos ? p.photos.slice(0, 2) : [],
     }));
   } catch (e) {
-    console.error('[Plan] 高德POI失败:', e.message);
+    console.error('[Plan] 高德搜索失败:', e.message);
     return [];
   }
 }
 
-// 和风天气城市查询
 async function qweatherCity(cityName) {
   if (!QWEATHER_KEY) return null;
   try {
     const resp = await axios.get(`${QWEATHER_GEO}/v2/city/lookup`, {
-      params: { location: cityName, key: QWEATHER_KEY },
-      timeout: 8000,
+      params: { location: cityName, key: QWEATHER_KEY }, timeout: 8000,
     });
     if (resp.data.code !== '200' || !resp.data.location || !resp.data.location.length) return null;
     const c = resp.data.location[0];
     return { id: c.id, name: c.name, lat: c.lat, lon: c.lon };
-  } catch (e) {
-    console.error('[Plan] 城市查询失败:', e.message);
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
-// 和风天气 7 天预报
 async function qweatherForecast(locationId) {
   if (!QWEATHER_KEY) return [];
   try {
     const resp = await axios.get(`${QWEATHER_BASE}/v7/weather/7d`, {
-      params: { location: locationId, key: QWEATHER_KEY },
-      timeout: 8000,
+      params: { location: locationId, key: QWEATHER_KEY }, timeout: 8000,
     });
     if (resp.data.code !== '200') return [];
     return (resp.data.daily || []).map(d => ({
-      date: d.fxDate,
-      textDay: d.textDay,
-      textNight: d.textNight,
-      tempMax: d.tempMax,
-      tempMin: d.tempMin,
-      windDirDay: d.windDirDay,
-      windScaleDay: d.windScaleDay,
-      humidity: d.humidity,
-      precip: d.precip,
+      date: d.fxDate, textDay: d.textDay, textNight: d.textNight,
+      tempMax: d.tempMax, tempMin: d.tempMin,
+      windDirDay: d.windDirDay, windScaleDay: d.windScaleDay,
+      humidity: d.humidity, precip: d.precip,
     }));
-  } catch (e) {
-    console.error('[Plan] 天气预报失败:', e.message);
-    return [];
-  }
+  } catch (e) { return []; }
 }
 
 /* ================================================================
- *  核心算法
+ *  阶段一：POST /api/plan/recommend — 三列表推荐
+ * ================================================================ */
+router.post('/recommend', async (req, res) => {
+  const { city } = req.body;
+  if (!city) return res.status(400).json({ error: '请提供目的地城市' });
+
+  try {
+    // 并行搜索三类 POI
+    const results = {};
+    const seen = { food: new Set(), outdoor: new Set(), culture: new Set() };
+
+    for (const cat of ['food', 'outdoor', 'culture']) {
+      results[cat] = [];
+      const plans = SEARCH_PLANS[cat];
+      const batchResults = await Promise.all(
+        plans.map(p => amapSearch(p.kw, city, p.type))
+      );
+      batchResults.forEach(arr => {
+        arr.forEach(p => {
+          if (seen[cat].has(p.name)) return;
+          seen[cat].add(p.name);
+
+          const loc = parseLocation(p.location);
+          const entry = {
+            id: `${cat}_${results[cat].length}`,
+            name: p.name,
+            address: p.address,
+            lng: loc ? loc.lng : null,
+            lat: loc ? loc.lat : null,
+            rating: p.rating,
+            cost: p.cost,
+            tel: p.tel,
+            photos: p.photos,
+            tags: [],
+          };
+
+          // 添加分类标签
+          if (cat === 'food') {
+            if (p.cost) entry.costLabel = costLabel(p.cost);
+            const name2 = (p.name || '').toLowerCase();
+            if (name2.includes('小吃') || name2.includes('面') || name2.includes('粉')) entry.tags.push('小吃');
+            if (name2.includes('火锅')) entry.tags.push('火锅');
+            if (name2.includes('老字号')) entry.tags.push('老字号');
+            if (name2.includes('咖啡') || name2.includes('茶')) entry.tags.push('饮品');
+            if (name2.includes('海鲜') || name2.includes('鱼')) entry.tags.push('海鲜');
+          }
+          if (cat === 'outdoor') {
+            const name2 = (p.name || '').toLowerCase();
+            if (name2.includes('山') || name2.includes('峰')) entry.tags.push('登山');
+            if (name2.includes('湖') || name2.includes('水')) entry.tags.push('湖景');
+            if (name2.includes('公园')) entry.tags.push('公园');
+            if (name2.includes('湿地') || name2.includes('森林')) entry.tags.push('自然');
+          }
+          if (cat === 'culture') {
+            const name2 = (p.name || '').toLowerCase();
+            if (name2.includes('博物馆')) entry.tags.push('博物馆');
+            if (name2.includes('寺') || name2.includes('庙')) entry.tags.push('寺庙');
+            if (name2.includes('故居')) entry.tags.push('故居');
+            if (name2.includes('遗址') || name2.includes('古城')) entry.tags.push('遗址');
+          }
+
+          results[cat].push(entry);
+        });
+      });
+    }
+
+    // 按评分排序
+    for (const cat of ['food', 'outdoor', 'culture']) {
+      results[cat].sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+      results[cat] = results[cat].slice(0, 12); // 每类最多12条
+    }
+
+    res.json({
+      city,
+      food: results.food,
+      outdoor: results.outdoor,
+      culture: results.culture,
+      totals: {
+        food: results.food.length,
+        outdoor: results.outdoor.length,
+        culture: results.culture.length,
+      },
+    });
+  } catch (err) {
+    console.error('[Plan] 推荐获取失败:', err.message);
+    res.status(500).json({ error: '获取推荐失败', detail: err.message });
+  }
+});
+
+/* ================================================================
+ *  阶段二：POST /api/plan/generate — 整合行程规划
+ * ================================================================ */
+router.post('/generate', async (req, res) => {
+  const { city, days = 3, budget, selections } = req.body;
+  // selections: { food: [names...], outdoor: [names...], culture: [names...] }
+
+  if (!city) return res.status(400).json({ error: '请提供目的地城市' });
+  if (days < 1 || days > 7) return res.status(400).json({ error: '天数需在 1-7 之间' });
+
+  const selFood = (selections && selections.food) || [];
+  const selOutdoor = (selections && selections.outdoor) || [];
+  const selCulture = (selections && selections.culture) || [];
+
+  try {
+    // ---- 并行拉取数据 ----
+    const [foodResults, outdoorResults, cultureResults, qCity] = await Promise.all([
+      // 食物：用勾选的 + 额外拉一些作为备选
+      (selFood.length > 0
+        ? Promise.all(selFood.slice(0, 6).map(name => amapSearch(name, city, POI_TYPES.food)))
+        : Promise.all(SEARCH_PLANS.food.slice(0, 2).map(p => amapSearch(p.kw, city, p.type)))
+      ),
+      // 户外景点
+      (selOutdoor.length > 0
+        ? Promise.all(selOutdoor.slice(0, 6).map(name => amapSearch(name, city, '')))
+        : Promise.all(SEARCH_PLANS.outdoor.slice(0, 3).map(p => amapSearch(p.kw, city, p.type)))
+      ),
+      // 人文景点
+      (selCulture.length > 0
+        ? Promise.all(selCulture.slice(0, 6).map(name => amapSearch(name, city, '')))
+        : Promise.all(SEARCH_PLANS.culture.slice(0, 3).map(p => amapSearch(p.kw, city, p.type)))
+      ),
+      qweatherCity(city),
+    ]);
+
+    // ---- 整理数据：分离餐厅和景点 ----
+    const restaurants = [];
+    const attractions = [];
+    const seenNames = new Set();
+
+    // 餐厅
+    foodResults.forEach(arr => {
+      arr.forEach(p => {
+        if (seenNames.has(p.name)) return;
+        seenNames.add(p.name);
+        const loc = parseLocation(p.location);
+        restaurants.push({
+          name: p.name, address: p.address, lng: loc ? loc.lng : null,
+          lat: loc ? loc.lat : null, rating: p.rating, cost: p.cost,
+        });
+      });
+    });
+
+    // 景点（户外+人文合并）
+    const allAttrResults = [...outdoorResults, ...cultureResults];
+    allAttrResults.forEach(arr => {
+      arr.forEach(p => {
+        if (seenNames.has(p.name)) return;
+        seenNames.add(p.name);
+        const loc = parseLocation(p.location);
+        attractions.push({
+          name: p.name, address: p.address, lng: loc ? loc.lng : null,
+          lat: loc ? loc.lat : null, rating: p.rating, type: p.type, indoor: isIndoor(p),
+        });
+      });
+    });
+
+    // 天气预报
+    let forecast = [];
+    if (qCity) forecast = await qweatherForecast(qCity.id);
+
+    // ---- 景点地理聚类 ----
+    const geoAttrs = attractions.filter(a => a.lng !== null && a.lat !== null);
+    const clusters = clusterPois(geoAttrs, 3); // 3km 聚类
+
+    // 餐厅按评分排序
+    restaurants.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+
+    // ---- 生成每日行程 ----
+    const dailyPlans = [];
+    const usedAttractions = new Set();
+
+    for (let d = 0; d < days; d++) {
+      const dayWeather = forecast[d] || null;
+      const canOutdoor = dayWeather ? isOutdoorFriendly(dayWeather.textDay) : true;
+      const isHot = dayWeather ? isHotDay(dayWeather.tempMax) : false;
+
+      // 拿一个簇的景点
+      const cluster = clusters[d % clusters.length] || [];
+      const dayAttractions = cluster.filter(a => !usedAttractions.has(a.name));
+      dayAttractions.forEach(a => usedAttractions.add(a.name));
+
+      // 天气筛选：雨→室内优先，晴→户外优先
+      dayAttractions.sort((a, b) => {
+        if (!canOutdoor) {
+          // 雨：室内优先
+          if (a.indoor && !b.indoor) return -1;
+          if (!a.indoor && b.indoor) return 1;
+        }
+        return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+      });
+
+      // 上午景点 (取前2个)
+      const morningSpots = dayAttractions.slice(0, 2);
+
+      // 午餐：找离上午景点最近、当天还没用过的餐厅
+      const morningCenter = calcCenter(morningSpots);
+      const lunchSpot = findNearestRestaurant(restaurants, morningCenter, usedAttractions, 'lunch');
+      if (lunchSpot) usedAttractions.add(lunchSpot.name);
+
+      // 下午景点 (取接下来2个，跳过已用的)
+      const restAttractions = dayAttractions.filter(a =>
+        !morningSpots.includes(a)
+      );
+      // 如果不够，从其他簇补
+      const afternoonSpots = restAttractions.slice(0, 2);
+
+      // 晚餐
+      const afternoonCenter = calcCenter(afternoonSpots.length ? afternoonSpots : morningSpots);
+      const dinnerSpot = findNearestRestaurant(restaurants, afternoonCenter, usedAttractions, 'dinner');
+      if (dinnerSpot) usedAttractions.add(dinnerSpot.name);
+
+      // 晚间活动（剩余一个景点或自由探索）
+      const remaining = dayAttractions.filter(a =>
+        !morningSpots.includes(a) && !afternoonSpots.includes(a)
+      );
+      const eveningActivity = remaining.length > 0 ? remaining[0] : null;
+
+      // 编排时间槽
+      const slots = isHot ? HOT_SLOTS : NORMAL_SLOTS;
+      const schedule = [];
+
+      // 早餐
+      schedule.push({
+        slot: 'breakfast', time: '08:00-09:00', label: '早餐', icon: '🍳',
+        poi: { name: '酒店早餐/当地早餐店', address: '' },
+      });
+
+      // 上午景点
+      morningSpots.forEach((s, i) => {
+        schedule.push({
+          slot: i === 0 ? 'morning1' : 'morning2',
+          ...slots[i === 0 ? 'morning1' : 'morning2'],
+          poi: { name: s.name, address: s.address, rating: s.rating },
+          tip: !canOutdoor && !s.indoor ? '注意带伞' : (isHot && !s.indoor ? '注意防晒' : null),
+          indoor: s.indoor,
+        });
+      });
+
+      // 午餐（固定在 12:00）
+      schedule.push({
+        slot: 'lunch', ...slots.lunch,
+        poi: lunchSpot
+          ? { name: lunchSpot.name, address: lunchSpot.address, rating: lunchSpot.rating, cost: lunchSpot.cost }
+          : { name: restaurants[d % restaurants.length]?.name || '当地特色餐厅', address: '' },
+        tip: lunchSpot && lunchSpot.cost ? costLabel(lunchSpot.cost) : null,
+        isMeal: true,
+      });
+
+      // 下午景点
+      afternoonSpots.forEach((s, i) => {
+        schedule.push({
+          slot: i === 0 ? 'afternoon1' : 'afternoon2',
+          ...slots[i === 0 ? 'afternoon1' : 'afternoon2'],
+          poi: { name: s.name, address: s.address, rating: s.rating },
+          tip: isHot && !s.indoor ? '注意防晒补水' : null,
+          indoor: s.indoor,
+        });
+      });
+
+      // 晚餐（固定在 18:00）
+      const dinnerIdx = (d * 2 + 1) % restaurants.length;
+      schedule.push({
+        slot: 'dinner', ...slots.dinner,
+        poi: dinnerSpot
+          ? { name: dinnerSpot.name, address: dinnerSpot.address, rating: dinnerSpot.rating, cost: dinnerSpot.cost }
+          : { name: restaurants[dinnerIdx]?.name || '热门餐厅', address: '' },
+        tip: dinnerSpot && dinnerSpot.cost ? costLabel(dinnerSpot.cost) : null,
+        isMeal: true,
+      });
+
+      // 晚间
+      schedule.push({
+        slot: 'evening', ...slots.evening,
+        poi: eveningActivity
+          ? { name: eveningActivity.name, address: eveningActivity.address }
+          : { name: canOutdoor ? '散步/自由探索' : (isHot ? '夜风纳凉' : '室内休闲'), address: '' },
+        tip: canOutdoor ? '享受夜晚' : (isHot ? '凉爽好时光' : '注意保暖'),
+      });
+
+      dailyPlans.push({
+        day: d + 1,
+        date: dayWeather ? dayWeather.date : `第${d + 1}天`,
+        weather: dayWeather ? {
+          text: dayWeather.textDay, icon: weatherIcon(dayWeather.textDay),
+          tempMax: dayWeather.tempMax, tempMin: dayWeather.tempMin,
+          wind: `${dayWeather.windDirDay}${dayWeather.windScaleDay}级`,
+        } : null,
+        schedule,
+      });
+    }
+
+    const budgetPerDay = budget ? Math.round(budget / days) : null;
+
+    res.json({
+      city, days, budget: budget || null, budgetPerDay,
+      source: attractions.length >= days ? '实时数据' : '部分实时+模板',
+      poisSource: `景点${attractions.length}个，餐厅${restaurants.length}个`,
+      weatherAvailable: forecast.length > 0,
+      selections: {
+        food: selFood.slice(0, 6),
+        outdoor: selOutdoor.slice(0, 6),
+        culture: selCulture.slice(0, 6),
+      },
+      daily: dailyPlans,
+    });
+  } catch (err) {
+    console.error('[Plan] 行程规划失败:', err.message);
+    res.status(500).json({ error: '行程规划失败', detail: err.message });
+  }
+});
+
+/* ================================================================
+ *  聚类 & 匹配算法（纯工具函数，不依赖AI）
  * ================================================================ */
 
-/**
- * 步骤 1 — 地理聚类
- * 用贪心算法把 POI 按距离 3km 分组
- */
+/** 贪心地理聚类：距离 maxDistKm 以内归入同一簇 */
 function clusterPois(pois, maxDistKm = 3) {
   if (!pois.length) return [];
-
   const unvisited = [...pois];
   const clusters = [];
-
   while (unvisited.length) {
     const cluster = [unvisited.shift()];
     const center = { lng: cluster[0].lng, lat: cluster[0].lat };
-
-    // 找所有距离当前中心 maxDistKm 以内的点
     let i = unvisited.length - 1;
     while (i >= 0) {
       if (!unvisited[i].lng || !unvisited[i].lat) { i--; continue; }
-      const d = distanceKm(center.lng, center.lat, unvisited[i].lng, unvisited[i].lat);
-      if (d <= maxDistKm) {
+      if (distanceKm(center.lng, center.lat, unvisited[i].lng, unvisited[i].lat) <= maxDistKm) {
         cluster.push(unvisited.splice(i, 1)[0]);
       }
       i--;
     }
     clusters.push(cluster);
   }
-
-  // 按簇大小排序（大簇优先分配）
   return clusters.sort((a, b) => b.length - a.length);
 }
 
-/**
- * 步骤 2 — 天气匹配
- * 根据每天天气决定：优先排室内还是室外
- */
-function weatherMatch(cluster, dayWeather, preference) {
-  const canOutdoor = dayWeather ? isOutdoorFriendly(dayWeather.textDay) : true;
-  const isHot = dayWeather ? isHotDay(dayWeather.tempMax) : false;
-
-  // 给每个 POI 打分
-  const scored = cluster.map(p => ({
-    ...p,
-    score: scorePoi(p, preference),
-    // 天气惩罚：雨天室内加分，炎热户外减分
-    weatherBonus: !canOutdoor ? (p.indoor ? 5 : -5) : (isHot ? (p.indoor ? 3 : -2) : 0),
-  }));
-
-  // 总排序
-  scored.sort((a, b) => (b.score + b.weatherBonus) - (a.score + a.weatherBonus));
-
-  return { pois: scored, canOutdoor, isHot };
-}
-
-/**
- * 步骤 3 — 节奏编排
- * 将一天的景点按时间槽排布
- */
-function scheduleDay(dayPois, restaurants, dayIndex, dayWeather, preference) {
-  const { pois, canOutdoor, isHot } = weatherMatch(dayPois, dayWeather, preference);
-  const slots = isHot ? HOT_DAY_SLOTS : TIME_SLOTS;
-
-  const schedule = [];
-  const usedSpots = [];
-
-  // 上午景点 ×2
-  const morningSpots = pois.filter(p => !p.indoor || canOutdoor).slice(0, 2);
-  if (!morningSpots.length) {
-    // 雨天全排室内
-    const indoor = pois.filter(p => p.indoor).slice(0, 2);
-    morningSpots.push(...indoor);
-  }
-  morningSpots.forEach((s, i) => {
-    const key = i === 0 ? 'morning1' : 'morning2';
-    schedule.push({
-      slot: key,
-      ...slots[key],
-      poi: { name: s.name, address: s.address, lng: s.lng, lat: s.lat, rating: s.rating, indoor: s.indoor },
-      tip: s.indoor ? '室内活动' : (canOutdoor ? null : '今日有雨，建议带伞'),
-    });
-    usedSpots.push(s.name);
-  });
-
-  // 午餐
-  const lunchSpot = restaurants[dayIndex % restaurants.length] || { name: '当地特色餐厅', address: '' };
-  schedule.push({
-    slot: 'lunch',
-    ...slots.lunch,
-    poi: { name: lunchSpot.name, address: lunchSpot.address },
-    tip: preference === 'foodie' ? '收藏打卡！' : null,
-  });
-
-  // 下午景点 ×2
-  const remaining = pois.filter(p => !usedSpots.includes(p.name));
-  const afternoonSpots = remaining.slice(0, 2);
-  afternoonSpots.forEach((s, i) => {
-    const key = i === 0 ? 'afternoon1' : 'afternoon2';
-    schedule.push({
-      slot: key,
-      ...slots[key],
-      poi: { name: s.name, address: s.address, lng: s.lng, lat: s.lat, rating: s.rating, indoor: s.indoor },
-      tip: isHot && !s.indoor ? '注意防晒补水' : null,
-    });
-    usedSpots.push(s.name);
-  });
-
-  // 晚餐
-  const dinnerSpot = restaurants[(dayIndex + 1) % restaurants.length] || { name: '热门餐厅', address: '' };
-  schedule.push({
-    slot: 'dinner',
-    ...slots.dinner,
-    poi: { name: dinnerSpot.name, address: dinnerSpot.address },
-    tip: preference === 'foodie' ? '本地人推荐！' : null,
-  });
-
-  // 晚间活动
-  const eveningSpots = pois.filter(p => !usedSpots.includes(p.name));
-  const eveningSpot = eveningSpots.length
-    ? eveningSpots[0]
-    : { name: '自由探索', address: '' };
-  schedule.push({
-    slot: 'evening',
-    ...slots.evening,
-    poi: { name: eveningSpot.name, address: eveningSpot.address, lng: eveningSpot.lng, lat: eveningSpot.lat },
-    tip: canOutdoor ? '散步好时光' : (isHot ? '夜风凉爽' : '注意保暖'),
-  });
-
-  return schedule;
-}
-
-/**
- * 生成通用行程（API 不可用时的降级方案）
- */
-function generateFallbackPlan(city, days, preference) {
-  const templates = {
-    foodie: {
-      morning:  ['{city}老街', '{city}特色早市', '{city}小吃一条街'],
-      afternoon: ['{city}美食博物馆', '{city}网红打卡街'],
-      evening:   ['{city}夜市', '{city}酒吧街'],
-      restaurants: ['{city}地道菜馆', '{city}老字号餐厅', '{city}热门火锅店'],
-    },
-    culture: {
-      morning:  ['{city}博物馆', '{city}历史街区', '{city}古城墙'],
-      afternoon: ['{city}名人故居', '{city}艺术馆', '{city}图书馆'],
-      evening:   ['{city}剧院', '{city}老街夜景'],
-      restaurants: ['{city}文化餐厅', '{city}主题餐吧', '{city}茶馆'],
-    },
-    outdoor: {
-      morning:  ['{city}国家公园', '{city}登山步道', '{city}湖畔'],
-      afternoon: ['{city}植物园', '{city}湿地公园', '{city}观景台'],
-      evening:   ['{city}日落观景点', '{city}滨江步道'],
-      restaurants: ['{city}农家乐', '{city}户外烧烤', '{city}湖边餐厅'],
-    },
+/** 计算一组POI的中心点 */
+function calcCenter(pois) {
+  if (!pois.length) return null;
+  const valid = pois.filter(p => p.lng !== null && p.lat !== null);
+  if (!valid.length) return null;
+  return {
+    lng: valid.reduce((s, p) => s + p.lng, 0) / valid.length,
+    lat: valid.reduce((s, p) => s + p.lat, 0) / valid.length,
   };
+}
 
-  const t = templates[preference] || templates.outdoor;
-  const daily = [];
-
-  for (let d = 0; d < days; d++) {
-    const hi = 'morning1';
-    // 轮转模板
-    const spots = [
-      { slot: 'morning1', time: '09:00-10:30', label: '上午景点①', icon: '🏛️',
-        poi: { name: t.morning[d % t.morning.length].replace('{city}', city), indoor: false } },
-      { slot: 'morning2', time: '10:30-12:00', label: '上午景点②', icon: '📍',
-        poi: { name: t.afternoon[d % t.afternoon.length].replace('{city}', city), indoor: false } },
-      { slot: 'lunch', time: '12:00-13:30', label: '午餐', icon: '🍽️',
-        poi: { name: t.restaurants[d % t.restaurants.length].replace('{city}', city) } },
-      { slot: 'afternoon1', time: '13:30-15:30', label: '下午景点①', icon: '🎯',
-        poi: { name: t.afternoon[(d + 1) % t.afternoon.length].replace('{city}', city), indoor: false } },
-      { slot: 'afternoon2', time: '15:30-17:30', label: '下午景点②', icon: '📸',
-        poi: { name: t.morning[(d + 1) % t.morning.length].replace('{city}', city), indoor: false } },
-      { slot: 'dinner', time: '17:30-19:00', label: '晚餐', icon: '🥘',
-        poi: { name: t.restaurants[(d + 1) % t.restaurants.length].replace('{city}', city) } },
-      { slot: 'evening', time: '19:00-21:00', label: '晚间活动', icon: '🌙',
-        poi: { name: t.evening[d % t.evening.length].replace('{city}', city) } },
-    ];
-    daily.push({ day: d + 1, schedule: spots });
-  }
-
-  return daily;
+/** 找离中心点最近且未被使用的餐厅 */
+function findNearestRestaurant(restaurants, center, used, mealType) {
+  if (!center) return null;
+  const candidates = restaurants
+    .filter(r => r.lng !== null && r.lat !== null && (!used || !used.has(r.name)))
+    .map(r => ({ ...r, _dist: distanceKm(center.lng, center.lat, r.lng, r.lat) }))
+    .sort((a, b) => a._dist - b._dist);
+  return candidates[0] || null;
 }
 
 /* ================================================================
- *  POST /api/plan/generate — 主入口
+ *  时间槽模板
  * ================================================================ */
-router.post('/generate', async (req, res) => {
-  const { city, days = 3, preference = 'outdoor', budget } = req.body;
+const NORMAL_SLOTS = {
+  morning1:   { time: '09:00-10:30', label: '上午景点①', icon: '🏛️' },
+  morning2:   { time: '10:30-12:00', label: '上午景点②', icon: '📍' },
+  lunch:      { time: '12:00-13:30', label: '午餐', icon: '🍽️' },
+  afternoon1: { time: '13:30-15:30', label: '下午景点①', icon: '🎯' },
+  afternoon2: { time: '15:30-17:30', label: '下午景点②', icon: '📸' },
+  dinner:     { time: '17:30-19:00', label: '晚餐', icon: '🥘' },
+  evening:    { time: '19:00-21:00', label: '晚间活动', icon: '🌙' },
+};
 
-  if (!city) {
-    return res.status(400).json({ error: '请提供目的地城市' });
-  }
-  if (days < 1 || days > 7) {
-    return res.status(400).json({ error: '天数需在 1-7 之间' });
-  }
-  const pref = ['foodie', 'culture', 'outdoor'].includes(preference) ? preference : 'outdoor';
-
-  const prefLabels = { foodie: '逛吃之旅', culture: '人文之旅', outdoor: '户外之旅' };
-
-  try {
-    // ---- 并行获取数据 ----
-    const prefKeywords = PREFERENCE_KEYWORDS[pref];
-
-    const [scenicResults, cultureResults, foodResults, qCity] = await Promise.all([
-      Promise.all(prefKeywords.map(kw => amapPoi(kw, city, POI_TYPES.scenic))),
-      amapPoi(pref === 'culture' ? '博物馆 历史' : '景点', city, POI_TYPES.culture),
-      amapPoi('美食 餐厅', city, POI_TYPES.food),
-      qweatherCity(city),
-    ]);
-
-    // 合并景点
-    const allScenic = [];
-    scenicResults.forEach(arr => allScenic.push(...arr));
-    const culturePois = cultureResults;
-    const foodPois = foodResults;
-
-    // 去重
-    const seen = new Set();
-    const allPois = [];
-    const addPois = (arr) => {
-      arr.forEach(p => {
-        if (!seen.has(p.name)) { seen.add(p.name); allPois.push(normalizePoi(p)); }
-      });
-    };
-    addPois(allScenic);
-    addPois(culturePois);
-    foodPois.forEach(p => {
-      if (!seen.has(p.name)) { seen.add(p.name); allPois.push(normalizePoi(p)); }
-    });
-
-    // 天气预报
-    let forecast = [];
-    if (qCity) {
-      forecast = await qweatherForecast(qCity.id);
-    }
-
-    // 筛选出有坐标的 POI 用于聚类
-    const geoPois = allPois.filter(p => p.lng !== null && p.lat !== null);
-
-    // ---- 执行规则引擎 ----
-    let dailyPlans;
-    let sourceLabel = '';
-    let poisSource = '';
-
-    if (geoPois.length >= days) {
-      // 足够数据：走完整规则引擎
-      const clusters = clusterPois(geoPois, 3);
-
-      // 按天分配簇
-      const daySchedules = [];
-      for (let d = 0; d < days; d++) {
-        const cluster = clusters[d % clusters.length] || [];
-        const dayWeather = forecast[d] || null;
-        const schedule = scheduleDay(cluster, foodPois.map(normalizePoi), d, dayWeather, pref);
-        daySchedules.push({
-          day: d + 1,
-          date: dayWeather ? dayWeather.date : `第${d + 1}天`,
-          weather: dayWeather ? {
-            text: dayWeather.textDay,
-            icon: weatherIcon(dayWeather.textDay),
-            tempMax: dayWeather.tempMax,
-            tempMin: dayWeather.tempMin,
-            wind: `${dayWeather.windDirDay}${dayWeather.windScaleDay}级`,
-          } : null,
-          schedule,
-        });
-      }
-
-      dailyPlans = daySchedules;
-      sourceLabel = '实时数据';
-      poisSource = `高德返回 ${allPois.length} 个地点，${geoPois.length} 个可定位`;
-    } else {
-      // 数据不足：降级到通用模板
-      dailyPlans = generateFallbackPlan(city, days, pref);
-      sourceLabel = '通用模板';
-      poisSource = `高德返回 ${allPois.length} 个地点（不足以精准规划）`;
-    }
-
-    // ---- 预算估算 ----
-    const budgetPerDay = budget
-      ? Math.round(budget / days)
-      : null;
-
-    // ---- 返回结果 ----
-    res.json({
-      city,
-      days,
-      preference: pref,
-      preferenceLabel: prefLabels[pref],
-      budget: budget || null,
-      budgetPerDay,
-      source: sourceLabel,
-      poisSource,
-      weatherAvailable: forecast.length > 0,
-      daily: dailyPlans,
-    });
-  } catch (err) {
-    console.error('[Plan] 行程规划失败:', err.message);
-
-    // 兜底：纯模板
-    const fallback = generateFallbackPlan(city, days, pref);
-    res.json({
-      city,
-      days,
-      preference: pref,
-      preferenceLabel: prefLabels[pref],
-      source: '离线模板（API 异常）',
-      daily: fallback,
-    });
-  }
-});
+const HOT_SLOTS = {
+  morning1:   { time: '07:30-10:00', label: '上午景点①', icon: '🏛️' },
+  morning2:   { time: '10:00-12:00', label: '室内参观', icon: '🏢' },
+  lunch:      { time: '12:00-13:30', label: '午餐', icon: '🍽️' },
+  afternoon1: { time: '13:30-15:00', label: '午休/室内', icon: '😴' },
+  afternoon2: { time: '15:30-17:30', label: '下午景点', icon: '📸' },
+  dinner:     { time: '17:30-19:00', label: '晚餐', icon: '🥘' },
+  evening:    { time: '19:00-21:00', label: '晚间活动', icon: '🌙' },
+};
 
 module.exports = router;

@@ -201,13 +201,28 @@ input,select,textarea{font-family:inherit}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 /* Smart Plan */
-.pref-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.pref-card{border:2px solid var(--border);border-radius:12px;padding:18px 14px;text-align:center;cursor:pointer;transition:all .2s}
-.pref-card:hover{border-color:var(--primary-light);box-shadow:var(--shadow-md)}
-.pref-card.active{border-color:var(--primary);background:var(--primary-light)}
-.pref-card .pref-icon{font-size:36px;display:block;margin-bottom:8px}
-.pref-card .pref-name{font-weight:700;font-size:15px}
-.pref-card .pref-desc{font-size:11px;color:var(--text-muted);margin-top:4px}
+.rec-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px}
+.rec-tab{flex:1;text-align:center;padding:10px 0;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.rec-tab:hover{color:var(--text)}
+.rec-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.rec-tab .tab-badge{font-size:10px;background:var(--bg);padding:1px 6px;border-radius:10px;margin-left:4px}
+.rec-tab.active .tab-badge{background:var(--primary-light);color:var(--primary)}
+.rec-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all .18s}
+.rec-item:hover{border-color:var(--primary-light);background:var(--bg)}
+.rec-item.checked{border-color:var(--primary);background:var(--primary-light)}
+.rec-item .rec-check{flex-shrink:0;width:20px;height:20px;border:2px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;color:transparent;transition:all .15s}
+.rec-item.checked .rec-check{background:var(--primary);border-color:var(--primary);color:#fff}
+.rec-item .rec-info{flex:1;min-width:0}
+.rec-item .rec-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-item .rec-meta{font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.rec-item .rec-cost{padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.rec-item .rec-cost.cheap{background:#dcfce7;color:#166534}
+.rec-item .rec-cost.mid{background:#fef3c7;color:#92400e}
+.rec-item .rec-cost.high{background:#fce7f3;color:#9d174d}
+.rec-summary{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border-radius:10px;margin-top:16px;flex-wrap:wrap}
+.rec-summary .sel-count{font-size:13px;font-weight:600}
+.rec-summary .sel-tags{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+.rec-summary .sel-tag{font-size:10px;padding:2px 8px;border-radius:10px;background:var(--primary-light);color:var(--primary-dark)}
 .day-itinerary{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
 .day-itinerary-header{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
 .day-itinerary-header.rainy{background:linear-gradient(135deg,#e0f2fe,#dbeafe)}
@@ -427,7 +442,7 @@ const state={
   budget:{mode:1,total:0,selectedPlan:0,fillData:{}},
   guides:[],
   city:'杭州',  // 默认城市
-  plan:{preference:'outdoor',days:3,budget:0,result:null,loading:false}
+  plan:{recommendations:null,selections:{food:[],outdoor:[],culture:[]},activeTab:'food',days:3,budget:0,result:null,loading:false}
 };
 
 /* ==================== Section Switching ==================== */
@@ -1298,27 +1313,87 @@ function openModal(title,body,footer){
 }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('show');}
 
-/* ==================== 智能规划 ==================== */
+/* ==================== 智能规划（三列表推荐 + 整合规划） ==================== */
+const recTabs=[
+  {key:'food',icon:'🍜',label:'美食推荐',desc:'本地特色餐饮'},
+  {key:'outdoor',icon:'🏔️',label:'户外推荐',desc:'自然风光与户外'},
+  {key:'culture',icon:'🏛️',label:'人文推荐',desc:'博物馆与历史古迹'},
+];
+
 function planHTML(){
   const p=state.plan;
-  const prefLabels={foodie:'🍜 逛吃之旅',culture:'🏛️ 人文之旅',outdoor:'🏔️ 户外之旅'};
-  const prefDescs={
-    foodie:'聚焦美食街、本地小吃、网红餐厅，适合吃货打卡',
-    culture:'探索博物馆、历史古迹、名人故居，感受城市底蕴',
-    outdoor:'登高望远、徒步骑行、亲近自然，拥抱山川湖海'
-  };
+  const rec=p.recommendations;
 
+  // ---- 推荐列表渲染 ----
+  let listHtml='';
+  if(rec){
+    const tab=recTabs.find(t=>t.key===p.activeTab)||recTabs[0];
+    const items=rec[tab.key]||[];
+    const selected=p.selections[tab.key]||[];
+    const totalSel=p.selections.food.length+p.selections.outdoor.length+p.selections.culture.length;
+    listHtml=`
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:12px">
+          📋 从推荐列表中勾选你感兴趣的（已选 ${totalSel} 项）
+        </div>
+        <div class="rec-tabs">
+          ${recTabs.map(t=>`
+            <div class="rec-tab ${p.activeTab===t.key?'active':''}" onclick="switchRecTab('${t.key}')">
+              ${t.icon} ${t.label}
+              <span class="tab-badge">${rec[t.key].length}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="rec-list" style="max-height:380px;overflow-y:auto">
+          ${items.map(item=>{
+            const isChecked=selected.includes(item.id);
+            const costCls=item.costLabel?item.costLabel.includes('平价')?'cheap':item.costLabel.includes('适中')?'mid':'high':'';
+            return `
+            <div class="rec-item ${isChecked?'checked':''}" onclick="toggleRecItem('${p.activeTab}','${item.id}')">
+              <div class="rec-check">${isChecked?'✓':''}</div>
+              <div class="rec-info">
+                <div class="rec-name">${item.name}</div>
+                <div class="rec-meta">
+                  ${item.rating?`<span>⭐ ${item.rating}</span>`:''}
+                  ${item.address?`<span>📍 ${item.address}</span>`:''}
+                  ${item.costLabel?`<span class="rec-cost ${costCls}">${item.costLabel}</span>`:''}
+                  ${item.tags.slice(0,3).map(t=>`<span style="font-size:10px;color:var(--text-muted)">#${t}</span>`).join('')}
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+          ${items.length===0?`<div class="empty" style="padding:24px"><div>暂无推荐数据</div></div>`:''}
+        </div>
+        <div class="rec-summary">
+          <div class="sel-count">
+            🍜 ${p.selections.food.length}家美食 · 🏔️ ${p.selections.outdoor.length}处户外 · 🏛️ ${p.selections.culture.length}处人文
+          </div>
+          <div class="sel-tags">
+            ${[...p.selections.food,...p.selections.outdoor,...p.selections.culture].slice(0,8).map(id=>{
+              const name=findRecName(id);
+              return name?`<span class="sel-tag">${name}</span>`:'';
+            }).join('')}
+          </div>
+          <button class="btn btn-primary" onclick="generatePlan()" ${p.loading?'disabled':''} style="white-space:nowrap">
+            ${p.loading?'⏳ 规划中...':'🚀 生成整合行程'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---- 结果区域 ----
   let resultHtml='';
   if(p.result){
     const r=p.result;
     const sourceCls=r.source.includes('实时')?'src-live':r.source.includes('模板')?'src-template':'src-fallback';
     resultHtml=`
       <div class="alert alert-success" style="display:flex;align-items:center;justify-content:space-between">
-        <span>✅ ${r.preferenceLabel} · ${r.city} · ${r.days}天行程已生成</span>
+        <span>✅ ${r.city} · ${r.days}天整合行程已生成</span>
         <span class="plan-source-tag ${sourceCls}">${r.source}</span>
       </div>
-      ${r.weatherAvailable?'<div class="budget-tip">🌤️ 已根据实时天气预报智能调整行程安排（雨天排室内、晴天排户外、高温避暑）</div>':''}
-      ${r.budgetPerDay?`<div class="budget-tip">💰 日均预算约 ¥${r.budgetPerDay}（总预算 ¥${r.budget} ÷ ${r.days}天）</div>`:''}
+      ${r.weatherAvailable?'<div class="budget-tip">🌤️ 已根据实时天气预报智能调整（雨天排室内、晴天排户外、高温避暑）</div>':''}
+      ${r.budgetPerDay?`<div class="budget-tip">💰 日均预算约 ¥${r.budgetPerDay}</div>`:''}
       ${r.daily.map((day,i)=>`
         <div class="day-itinerary">
           <div class="day-itinerary-header ${day.weather?day.weather.text.includes('雨')?'rainy':parseInt(day.weather.tempMax)>=35?'hot':'sunny':''}">
@@ -1329,9 +1404,9 @@ function planHTML(){
             ${day.schedule.map(s=>`
               <div class="itinerary-step">
                 <div class="itinerary-time">${s.time}</div>
-                <div class="itinerary-label">${s.icon} ${s.label}</div>
+                <div class="itinerary-label">${s.icon} ${s.label}${s.isMeal?'<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px;margin-left:4px">饭点</span>':''}</div>
                 <div class="itinerary-content">
-                  <div class="itinerary-name">${s.poi.name}</div>
+                  <div class="itinerary-name">${s.poi.name}${s.poi.cost?` <span style="font-size:10px;color:var(--text-muted)">${s.poi.cost}元/人</span>`:''}</div>
                   ${s.poi.address?`<div class="itinerary-addr">📍 ${s.poi.address}</div>`:''}
                   ${s.tip?`<div class="itinerary-tip">💡 ${s.tip}</div>`:''}
                 </div>
@@ -1340,31 +1415,21 @@ function planHTML(){
           </div>
         </div>
       `).join('')}
-      ${!r.weatherAvailable?`<div class="alert alert-info mt-16">ℹ️ 天气数据不可用，行程未做天气适配。配置和风天气Key后可获得更精准的规划。</div>`:''}
+      ${!r.weatherAvailable?`<div class="alert alert-info mt-16">ℹ️ 天气数据不可用。配置和风天气Key后可获得更精准规划。</div>`:''}
     `;
   }
 
   return `
   <div class="section-header">
     <h2>🧠 智能行程规划</h2>
-    <p>输入目的地、天数和偏好，系统根据实时POI数据 + 天气 + 地理聚类，自动生成每日行程方案（纯规则引擎，无需AI备案）</p>
+    <p>系统自动拉取美食/户外/人文三类推荐 → 你勾选感兴趣的 → 一键整合为合理的每日行程（餐厅仅作为饭点停靠，不当作景点）</p>
   </div>
   <div class="section-body">
     <div class="card" style="margin-bottom:20px">
-      <div class="card-title" style="margin-bottom:14px">🎯 选择你的旅行偏好</div>
-      <div class="pref-grid" id="pref-grid">
-        ${['foodie','culture','outdoor'].map(k=>`
-          <div class="pref-card ${p.preference===k?'active':''}" onclick="selectPreference('${k}')">
-            <span class="pref-icon">${k==='foodie'?'🍜':k==='culture'?'🏛️':'🏔️'}</span>
-            <div class="pref-name">${prefLabels[k]}</div>
-            <div class="pref-desc">${prefDescs[k]}</div>
-          </div>
-        `).join('')}
-      </div>
-      <div class="plan-controls">
+      <div class="plan-controls" id="plan-controls">
         <div>
           <div class="field-label">目的地</div>
-          <input type="text" class="budget-input" id="plan-city" value="${state.city}" placeholder="城市名称">
+          <input type="text" class="budget-input" id="plan-city" value="${state.city}" placeholder="城市名称（如杭州）">
         </div>
         <div>
           <div class="field-label">旅行天数</div>
@@ -1380,29 +1445,78 @@ function planHTML(){
           </div>
         </div>
         <div>
-          <button class="btn btn-primary" id="plan-btn" onclick="generatePlan()" ${p.loading?'disabled':''}>
-            ${p.loading?'⏳ 规划中...':'🚀 生成行程'}
+          <button class="btn ${rec?'btn-outline':'btn-primary'}" id="plan-fetch-btn" onclick="fetchRecommendations()" ${p.loading?'disabled':''}>
+            ${p.loading?'⏳ 获取中...':(rec?'🔄 刷新推荐':'🔍 获取推荐')}
           </button>
         </div>
       </div>
+      ${!rec?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px">👆 输入城市后点击"获取推荐"，系统将从高德拉取美食、户外、人文三类地点供你挑选</div>`:''}
     </div>
-    <div id="plan-result">
-      ${resultHtml}
-      ${!p.result?`<div class="empty"><div class="empty-icon">🧠</div><div>选择偏好 → 输入目的地和天数 → 点击生成<br><span style="font-size:12px">系统将自动聚合高德POI + 和风天气，智能编排每日行程</span></div></div>`:''}
-    </div>
+    ${listHtml}
+    <div id="plan-result">${resultHtml}</div>
+    ${!p.result&&!rec?`<div class="empty"><div class="empty-icon">🧠</div><div>输入目的地 → 获取推荐 → 勾选想去的地方 → 生成行程<br><span style="font-size:12px">餐厅固定在午餐/晚餐时间，不会塞进景点列表</span></div></div>`:''}
   </div>`;
 }
 
-function selectPreference(k){
-  state.plan.preference=k;
-  document.querySelectorAll('.pref-card').forEach(el=>{
-    el.classList.toggle('active',el.querySelector('.pref-name').textContent.includes(
-      k==='foodie'?'逛吃':k==='culture'?'人文':'户外'
-    ));
-  });
+function switchRecTab(key){
+  state.plan.activeTab=key;
+  renderSection();
+}
+
+function toggleRecItem(cat,id){
+  const sel=state.plan.selections[cat];
+  const idx=sel.indexOf(id);
+  if(idx>=0) sel.splice(idx,1);
+  else sel.push(id);
+  renderSection();
+}
+
+function findRecName(id){
+  const rec=state.plan.recommendations;
+  if(!rec) return null;
+  for(const cat of ['food','outdoor','culture']){
+    const item=rec[cat].find(it=>it.id===id);
+    if(item) return item.name;
+  }
+  return null;
+}
+
+async function fetchRecommendations(){
+  const cityEl=document.getElementById('plan-city');
+  const city=cityEl.value.trim();
+  if(!city){alert('请输入目的地城市');return;}
+
+  state.city=city;
+  state.plan.loading=true;
+  state.plan.result=null;
+  state.plan.selections={food:[],outdoor:[],culture:[]};
+  state.plan.activeTab='food';
+
+  const btn=document.getElementById('plan-fetch-btn');
+  btn.disabled=true;
+  btn.textContent='⏳ 获取中...';
+  renderSection();
+
+  try{
+    const result=await apiFetch('/api/plan/recommend',{},'POST',{city});
+    if(result){
+      state.plan.recommendations=result;
+    }else{
+      alert('获取推荐失败，请检查后端连接或API Key配置。');
+    }
+  }catch(e){
+    console.error('[Plan] 获取推荐失败:',e);
+    alert('获取推荐失败: '+e.message);
+  }
+
+  state.plan.loading=false;
+  btn.disabled=false;
+  btn.textContent='🔄 刷新推荐';
+  renderSection();
 }
 
 async function generatePlan(){
+  const p=state.plan;
   const cityEl=document.getElementById('plan-city');
   const daysEl=document.getElementById('plan-days');
   const budgetEl=document.getElementById('plan-budget');
@@ -1412,98 +1526,79 @@ async function generatePlan(){
 
   if(!city){alert('请输入目的地城市');return;}
 
+  const selections={food:[],outdoor:[],culture:[]};
+  const rec=p.recommendations||{};
+  for(const cat of ['food','outdoor','culture']){
+    selections[cat]=(p.selections[cat]||[])
+      .map(id=>{const item=(rec[cat]||[]).find(it=>it.id===id);return item?item.name:null;})
+      .filter(Boolean);
+  }
+
   state.city=city;
-  state.plan.days=days;
-  state.plan.budget=budget;
-  state.plan.loading=true;
+  p.days=days;
+  p.budget=budget;
+  p.loading=true;
 
-  // 更新按钮状态
-  const btn=document.getElementById('plan-btn');
-  btn.disabled=true;
-  btn.textContent='⏳ 规划中...';
-
-  // 显示加载状态
   const resultDiv=document.getElementById('plan-result');
-  resultDiv.innerHTML='<div class="empty"><div class="empty-icon" style="animation:spin 1s linear infinite">🧠</div><div>正在生成行程方案...<br><span style="font-size:12px">查询POI数据 → 分析天气 → 地理聚类 → 节奏编排</span></div></div>';
+  resultDiv.innerHTML='<div class="empty"><div class="empty-icon" style="animation:spin 1s linear infinite">🧠</div><div>正在生成整合行程...<br><span style="font-size:12px">地理聚类 → 天气匹配 → 餐厅就近匹配 → 节奏编排</span></div></div>';
 
   try{
     const result=await apiFetch('/api/plan/generate',{},'POST',{
-      city:city,
-      days:days,
-      preference:state.plan.preference,
-      budget:budget||null
+      city,days,budget:budget||null,selections
     });
-
-    if(result){
-      state.plan.result=result;
-    }else{
-      // 后端不可用时的兜底显示
-      state.plan.result={
-        city:city,
-        days:days,
-        preference:state.plan.preference,
-        preferenceLabel:{foodie:'逛吃之旅',culture:'人文之旅',outdoor:'户外之旅'}[state.plan.preference],
-        source:'离线模板（后端未连接）',
+    if(result){ p.result=result; }
+    else{
+      p.result={
+        city,days,source:'离线模板（后端未连接）',
         weatherAvailable:false,
-        daily:generateFallbackPlanLocal(city,days,state.plan.preference)
+        selections:{food:[],outdoor:[],culture:[]},
+        daily:generateFallbackPlanLocal(city,days,selections)
       };
     }
   }catch(e){
     console.error('[Plan] 生成失败:',e);
-    state.plan.result={
-      city:city,
-      days:days,
-      preference:state.plan.preference,
-      preferenceLabel:{foodie:'逛吃之旅',culture:'人文之旅',outdoor:'户外之旅'}[state.plan.preference],
-      source:'错误恢复模板',
+    p.result={
+      city,days,source:'错误恢复模板',
       weatherAvailable:false,
-      daily:generateFallbackPlanLocal(city,days,state.plan.preference)
+      selections:{food:[],outdoor:[],culture:[]},
+      daily:generateFallbackPlanLocal(city,days,selections)
     };
   }
 
-  state.plan.loading=false;
-  btn.disabled=false;
-  btn.textContent='🔄 重新生成';
+  p.loading=false;
   renderSection();
 }
 
-// 本地降级模板（与后端 generateFallbackPlan 逻辑一致）
-function generateFallbackPlanLocal(city,days,preference){
-  const templates={
-    foodie:{
-      morning:['${city}老街','${city}特色早市','${city}小吃一条街'],
-      afternoon:['${city}美食博物馆','${city}网红打卡街'],
-      evening:['${city}夜市','${city}酒吧街'],
-      restaurants:['${city}地道菜馆','${city}老字号餐厅','${city}热门火锅店'],
-    },
-    culture:{
-      morning:['${city}博物馆','${city}历史街区','${city}古城墙'],
-      afternoon:['${city}名人故居','${city}艺术馆','${city}图书馆'],
-      evening:['${city}剧院','${city}老街夜景'],
-      restaurants:['${city}文化餐厅','${city}主题餐吧','${city}茶馆'],
-    },
-    outdoor:{
-      morning:['${city}国家公园','${city}登山步道','${city}湖畔'],
-      afternoon:['${city}植物园','${city}湿地公园','${city}观景台'],
-      evening:['${city}日落观景点','${city}滨江步道'],
-      restaurants:['${city}农家乐','${city}户外烧烤','${city}湖边餐厅'],
-    },
-  };
-  const t=templates[preference]||templates.outdoor;
+function generateFallbackPlanLocal(city,days,selections){
+  const selFood=selections.food||[];
+  const selOutdoor=selections.outdoor||[];
+  const selCulture=selections.culture||[];
+
+  const defaultRestaurants=[
+    {name:city+'地道菜馆',cost:60},{name:city+'老字号餐厅',cost:80},
+    {name:city+'特色小吃',cost:30},{name:city+'网红餐厅',cost:100},
+    {name:city+'本地火锅',cost:90},{name:city+'农家菜',cost:50},
+  ];
+
+  const allAttr=[...selOutdoor,...selCulture];
+  if(allAttr.length===0) allAttr.push(city+'市中心', city+'商业街', city+'公园');
+
   const daily=[];
   for(let d=0;d<days;d++){
     const spots=[
-      {slot:'morning1',time:'09:00-10:30',label:'上午景点①',icon:'🏛️',poi:{name:t.morning[d%t.morning.length].replace('${city}',city),address:''},tip:null},
-      {slot:'morning2',time:'10:30-12:00',label:'上午景点②',icon:'📍',poi:{name:t.afternoon[d%t.afternoon.length].replace('${city}',city),address:''},tip:null},
-      {slot:'lunch',time:'12:00-13:30',label:'午餐',icon:'🍽️',poi:{name:t.restaurants[d%t.restaurants.length].replace('${city}',city),address:''},tip:null},
-      {slot:'afternoon1',time:'13:30-15:30',label:'下午景点①',icon:'🎯',poi:{name:t.afternoon[(d+1)%t.afternoon.length].replace('${city}',city),address:''},tip:null},
-      {slot:'afternoon2',time:'15:30-17:30',label:'下午景点②',icon:'📸',poi:{name:t.morning[(d+1)%t.morning.length].replace('${city}',city),address:''},tip:null},
-      {slot:'dinner',time:'17:30-19:00',label:'晚餐',icon:'🥘',poi:{name:t.restaurants[(d+1)%t.restaurants.length].replace('${city}',city),address:''},tip:null},
-      {slot:'evening',time:'19:00-21:00',label:'晚间活动',icon:'🌙',poi:{name:t.evening[d%t.evening.length].replace('${city}',city),address:''},tip:null},
+      {slot:'breakfast',time:'08:00-09:00',label:'早餐',icon:'🍳',poi:{name:'酒店早餐/当地早餐店',address:''}},
+      {slot:'morning1',time:'09:00-10:30',label:'上午景点①',icon:'🏛️',poi:{name:allAttr[d*2%allAttr.length],address:''}},
+      {slot:'morning2',time:'10:30-12:00',label:'上午景点②',icon:'📍',poi:{name:allAttr[(d*2+1)%allAttr.length],address:''}},
+      {slot:'lunch',time:'12:00-13:30',label:'午餐',icon:'🍽️',poi:{name:selFood[d%selFood.length]||defaultRestaurants[d%6].name,address:''},isMeal:true},
+      {slot:'afternoon1',time:'13:30-15:30',label:'下午景点①',icon:'🎯',poi:{name:allAttr[(d*2+2)%allAttr.length],address:''}},
+      {slot:'afternoon2',time:'15:30-17:30',label:'下午景点②',icon:'📸',poi:{name:allAttr[(d*2+3)%allAttr.length],address:''}},
+      {slot:'dinner',time:'17:30-19:00',label:'晚餐',icon:'🥘',poi:{name:selFood[(d+1)%selFood.length]||defaultRestaurants[(d+3)%6].name,address:''},isMeal:true},
+      {slot:'evening',time:'19:00-21:00',label:'晚间活动',icon:'🌙',poi:{name:'自由探索/散步',address:''}},
     ];
-    daily.push({day:d+1,date:`第${d+1}天`,schedule:spots});
+    daily.push({day:d+1,date:'第'+(d+1)+'天',schedule:spots});
   }
   return daily;
+}
 }
 renderSection();
 renderLocList();

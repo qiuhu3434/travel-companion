@@ -1,51 +1,81 @@
-<!-- 悠行 - 智能规划页面 -->
+<!-- 悠行 - 智能规划（三列表推荐 + 整合规划） -->
 <view class="page-container">
 
-  <!-- 偏好选择 -->
-  <view class="card">
-    <view class="card-title">🎯 选择旅行偏好</view>
-    <view class="pref-grid">
-      <view class="pref-card {{preference==='foodie'?'active':''}}" bindtap="selectPref" data-pref="foodie">
-        <text class="pref-icon">🍜</text>
-        <view class="pref-name">逛吃之旅</view>
-        <view class="pref-desc">聚焦美食街、本地小吃</view>
-      </view>
-      <view class="pref-card {{preference==='culture'?'active':''}}" bindtap="selectPref" data-pref="culture">
-        <text class="pref-icon">🏛️</text>
-        <view class="pref-name">人文之旅</view>
-        <view class="pref-desc">探索博物馆、历史古迹</view>
-      </view>
-      <view class="pref-card {{preference==='outdoor'?'active':''}}" bindtap="selectPref" data-pref="outdoor">
-        <text class="pref-icon">🏔️</text>
-        <view class="pref-name">户外之旅</view>
-        <view class="pref-desc">登高望远、亲近自然</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 输入参数 -->
+  <!-- 输入区 -->
   <view class="card">
     <view class="card-title">📍 出行信息</view>
     <view class="form-row">
-      <view class="form-item half">
+      <view class="form-item" style="flex:1">
         <view class="field-label">目的地</view>
-        <input class="input" placeholder="城市名称" value="{{city}}" bindinput="onCityInput" />
+        <input class="input" placeholder="城市名称（如杭州）" value="{{city}}" bindinput="onCityInput" />
       </view>
+    </view>
+    <view class="form-row">
       <view class="form-item half">
         <view class="field-label">旅行天数</view>
         <picker mode="selector" range="{{dayOptions}}" value="{{dayIndex}}" bindchange="onDayChange">
           <view class="input">{{days}}天</view>
         </picker>
       </view>
-    </view>
-    <view class="form-row">
       <view class="form-item half">
         <view class="field-label">总预算（可选）</view>
         <input class="input" type="number" placeholder="元" value="{{budgetText}}" bindinput="onBudgetInput" />
       </view>
-      <view class="form-item half" style="display:flex;align-items:flex-end">
-        <button class="btn btn-primary btn-block" bindtap="generatePlan" disabled="{{loading}}">
-          {{loading ? '⏳ 规划中...' : '🚀 生成行程'}}
+    </view>
+    <button class="btn {{recommendations?'btn-outline':'btn-primary'}} btn-block" bindtap="fetchRecommendations" disabled="{{loading}}">
+      {{loading ? '⏳ 获取中...' : (recommendations ? '🔄 刷新推荐' : '🔍 获取推荐')}}
+    </button>
+    <view wx:if="{{!recommendations}}" class="hint" style="margin-top:8px;font-size:12px;color:var(--text-muted)">
+      👆 输入城市后点击"获取推荐"，系统将从高德拉取美食、户外、人文三类地��供你挑选
+    </view>
+  </view>
+
+  <!-- 推荐列表 -->
+  <view wx:if="{{recommendations}}">
+    <view class="card">
+      <view class="card-title">
+        📋 勾选你感兴趣的（已选 {{selCount}} 项）
+      </view>
+
+      <!-- 标签页 -->
+      <view class="rec-tabs">
+        <view class="rec-tab {{activeTab==='food'?'active':''}}" bindtap="switchTab" data-tab="food">
+          🍜 美食<text class="tab-badge">{{recommendations.food.length}}</text>
+        </view>
+        <view class="rec-tab {{activeTab==='outdoor'?'active':''}}" bindtap="switchTab" data-tab="outdoor">
+          🏔️ 户外<text class="tab-badge">{{recommendations.outdoor.length}}</text>
+        </view>
+        <view class="rec-tab {{activeTab==='culture'?'active':''}}" bindtap="switchTab" data-tab="culture">
+          🏛️ 人文<text class="tab-badge">{{recommendations.culture.length}}</text>
+        </view>
+      </view>
+
+      <!-- 当前列表 -->
+      <scroll-view scroll-y style="max-height:360px" wx:key="activeTab">
+        <view wx:for="{{currentItems}}" wx:key="id" class="rec-item {{item._checked?'checked':''}}" bindtap="toggleItem" data-id="{{item.id}}">
+          <view class="rec-check">{{item._checked ? '✓' : ''}}</view>
+          <view class="rec-info">
+            <view class="rec-name">{{item.name}}</view>
+            <view class="rec-meta">
+              <text wx:if="{{item.rating}}">⭐ {{item.rating}}</text>
+              <text wx:if="{{item.address}}">📍 {{item.address}}</text>
+              <text wx:if="{{item.costLabel}}" class="rec-cost {{item.costLabel.indexOf('平价')>=0?'cheap':item.costLabel.indexOf('适中')>=0?'mid':'high'}}">{{item.costLabel}}</text>
+              <text wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this" style="font-size:10px;color:var(--text-muted)">#{{tag}}</text>
+            </view>
+          </view>
+        </view>
+        <view wx:if="{{currentItems.length===0}}" class="empty" style="padding:20px">
+          <view>暂无推荐数据</view>
+        </view>
+      </scroll-view>
+
+      <!-- 已选汇总 -->
+      <view class="rec-summary">
+        <view class="sel-count">
+          🍜 {{selections.food.length}}家 · 🏔️ {{selections.outdoor.length}}处 · 🏛️ {{selections.culture.length}}处
+        </view>
+        <button class="btn btn-primary" bindtap="generatePlan" disabled="{{loading}}" style="white-space:nowrap;font-size:13px">
+          {{loading ? '⏳ 规划中...' : '🚀 生成整合行程'}}
         </button>
       </view>
     </view>
@@ -54,12 +84,12 @@
   <!-- 结果区域 -->
   <view wx:if="{{result}}">
     <view class="alert alert-success">
-       ✅ {{result.preferenceLabel}} · {{result.city}} · {{result.days}}天行程
-      <text class="tag {{result.source.includes('实时')?'tag-blue':result.source.includes('模板')?'tag-amber':''}}">{{result.source}}</text>
+      ✅ {{result.city}} · {{result.days}}天整合行程
+      <text class="tag {{result.source.indexOf('实时')>=0?'tag-blue':''}}">{{result.source}}</text>
     </view>
 
     <view wx:if="{{result.weatherAvailable}}" class="alert alert-info">
-      🌤️ 已根据实时天气预报智能调整行程安排
+      🌤️ 已根据实时天气预报智能调整行程
     </view>
 
     <view wx:if="{{result.budgetPerDay}}" class="alert alert-info">
@@ -76,9 +106,15 @@
       <view class="day-body">
         <view wx:for="{{item.schedule}}" wx:for-item="s" wx:key="slot" class="timeline-step">
           <view class="step-time">{{s.time}}</view>
-          <view class="step-label">{{s.icon}} {{s.label}}</view>
+          <view class="step-label">
+            {{s.icon}} {{s.label}}
+            <text wx:if="{{s.isMeal}}" style="font-size:9px;background:#fef3c7;color:#92400e;padding:0 4px;border-radius:3px;margin-left:4px">饭点</text>
+          </view>
           <view class="step-content">
-            <view class="step-name">{{s.poi.name}}</view>
+            <view class="step-name">
+              {{s.poi.name}}
+              <text wx:if="{{s.poi.cost}}" style="font-size:10px;color:var(--text-muted)">{{s.poi.cost}}元/人</text>
+            </view>
             <view wx:if="{{s.poi.address}}" class="step-addr">📍 {{s.poi.address}}</view>
             <view wx:if="{{s.tip}}" class="step-tip">💡 {{s.tip}}</view>
           </view>
@@ -88,10 +124,10 @@
   </view>
 
   <!-- 空状态 -->
-  <view wx:if="{{!result && !loading}}" class="empty">
+  <view wx:if="{{!recommendations && !result && !loading}}" class="empty">
     <view class="empty-icon">🧠</view>
-    <view class="empty-text">选择偏好 → 输入目的地 → 点击生成
-      \n系统将自动聚合POI + 天气，智能编排每日行程</view>
+    <view class="empty-text">输入目的地 → 获取推荐 → 勾选想去的地方 → 生成行程
+      \n餐厅固定在午餐/晚餐时间，不会塞进景点列表</view>
   </view>
 
 </view>
