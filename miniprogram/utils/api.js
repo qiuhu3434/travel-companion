@@ -21,23 +21,35 @@ const DEFAULT_TIMEOUT = 10000;
  * @returns {Promise<object|null>}
  */
 function request(path, params = {}, options = {}) {
-  const { timeout = DEFAULT_TIMEOUT, useCache = false, cacheTTL = 1800000 } = options;
+  const { timeout = DEFAULT_TIMEOUT, useCache = false, cacheTTL = 1800000, method = 'GET', body = null } = options;
   const baseUrl = app.globalData.apiBase;
   
-  // 构建 URL
-  const queryStr = Object.keys(params)
-    .filter(k => params[k] !== undefined && params[k] !== null)
-    .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
-    .join('&');
-  const url = queryStr ? `${baseUrl}${path}?${queryStr}` : `${baseUrl}${path}`;
+  let url = baseUrl + path;
+  let data = null;
+
+  if (method === 'GET') {
+    const queryStr = Object.keys(params)
+      .filter(k => params[k] !== undefined && params[k] !== null)
+      .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(params[k])}`)
+      .join('&');
+    if (queryStr) url += '?' + queryStr;
+  } else if (method === 'POST' && body) {
+    data = body;
+  }
 
   // 检查缓存
-  if (useCache) {
+  if (useCache && method === 'GET') {
     const cacheKey = CACHE_KEY_PREFIX + path + '_' + JSON.stringify(params);
     const cached = wx.getStorageSync(cacheKey);
     if (cached && cached.expires > Date.now()) {
       return Promise.resolve(cached.data);
     }
+  }
+
+  const requestOptions = { url, method, timeout };
+  if (data) {
+    requestOptions.data = data;
+    requestOptions.header = { 'Content-Type': 'application/json' };
   }
 
   return new Promise((resolve, reject) => {
@@ -46,21 +58,18 @@ function request(path, params = {}, options = {}) {
     }, timeout);
 
     wx.request({
-      url,
-      method: 'GET',
-      timeout,
+      ...requestOptions,
       success(res) {
         clearTimeout(timer);
         if (res.statusCode === 200) {
-          const data = res.data;
-          // 写入缓存
-          if (useCache && data && !data.error) {
+          const respData = res.data;
+          if (useCache && method === 'GET' && respData && !respData.error) {
             wx.setStorageSync(CACHE_KEY_PREFIX + path + '_' + JSON.stringify(params), {
-              data,
+              data: respData,
               expires: Date.now() + cacheTTL
             });
           }
-          resolve(data);
+          resolve(respData);
         } else {
           console.warn(`[API] ${path} 返回 ${res.statusCode}:`, res.data);
           resolve(null);
@@ -69,7 +78,7 @@ function request(path, params = {}, options = {}) {
       fail(err) {
         clearTimeout(timer);
         console.warn(`[API] ${path} 请求失败:`, err.errMsg);
-        resolve(null); // 不抛错，让调用方处理
+        resolve(null);
       }
     });
   });
@@ -114,6 +123,8 @@ function updateDataSource(key, value) {
 
 module.exports = {
   request,
+  get: (path, params, options) => request(path, params, { ...options, method: 'GET' }),
+  post: (path, body, options) => request(path, {}, { ...options, method: 'POST', body }),
   checkKeys,
   getState,
   updateState,

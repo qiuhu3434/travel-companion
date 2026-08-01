@@ -205,12 +205,18 @@ Page({
     this.setData({ returnTime: e.detail.value });
   },
 
-  /** 跳转预算/攻略 */
+  /**
+   * 跳转预算/攻略/规划
+   */
   goToBudget() {
     wx.navigateTo({ url: '/pages/budget/budget' });
   },
 
   goToGuides() {
     wx.navigateTo({ url: '/pages/guides/guides' });
+  },
+
+  goToPlan() {
+    wx.navigateTo({ url: '/pages/plan/plan' });
   }
 });

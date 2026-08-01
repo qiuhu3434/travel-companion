@@ -5,7 +5,8 @@
     "pages/transport/transport",
     "pages/prep/prep",
     "pages/budget/budget",
-    "pages/guides/guides"
+    "pages/guides/guides",
+    "pages/plan/plan"
   ],
   "window": {
     "navigationBarTitleText": "悠行",

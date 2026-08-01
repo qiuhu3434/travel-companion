@@ -51,6 +51,7 @@ app.use('/api/amap', require('./routes/amap'));
 app.use('/api/weather', require('./routes/weather'));
 app.use('/api/guides', require('./routes/guides'));
 app.use('/api/wechat', require('./routes/wechat'));
+app.use('/api/plan', require('./routes/plan'));
 
 /* ---- 健康检查 ---- */
 app.get('/api/health', (req, res) => {

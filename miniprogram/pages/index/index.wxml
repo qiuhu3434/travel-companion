@@ -74,13 +74,16 @@
     </view>
   </view>
 
-  <!-- 快速入口：预算 + 攻略 -->
-  <view class="grid-2" style="margin-bottom:12px">
+  <!-- 快速入口：预算 + 攻略 + 规划 -->
+  <view class="grid-3" style="margin-bottom:12px">
     <button class="btn btn-outline" bindtap="goToBudget">
       💰 旅行经费
     </button>
     <button class="btn btn-outline" bindtap="goToGuides">
       🔍 攻略检索
+    </button>
+    <button class="btn btn-primary" bindtap="goToPlan">
+      🧠 智能规划
     </button>
   </view>
 

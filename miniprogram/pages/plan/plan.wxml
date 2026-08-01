@@ -1,0 +1,97 @@
+<!-- 悠行 - 智能规划页面 -->
+<view class="page-container">
+
+  <!-- 偏好选择 -->
+  <view class="card">
+    <view class="card-title">🎯 选择旅行偏好</view>
+    <view class="pref-grid">
+      <view class="pref-card {{preference==='foodie'?'active':''}}" bindtap="selectPref" data-pref="foodie">
+        <text class="pref-icon">🍜</text>
+        <view class="pref-name">逛吃之旅</view>
+        <view class="pref-desc">聚焦美食街、本地小吃</view>
+      </view>
+      <view class="pref-card {{preference==='culture'?'active':''}}" bindtap="selectPref" data-pref="culture">
+        <text class="pref-icon">🏛️</text>
+        <view class="pref-name">人文之旅</view>
+        <view class="pref-desc">探索博物馆、历史古迹</view>
+      </view>
+      <view class="pref-card {{preference==='outdoor'?'active':''}}" bindtap="selectPref" data-pref="outdoor">
+        <text class="pref-icon">🏔️</text>
+        <view class="pref-name">户外之旅</view>
+        <view class="pref-desc">登高望远、亲近自然</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 输入参数 -->
+  <view class="card">
+    <view class="card-title">📍 出行信息</view>
+    <view class="form-row">
+      <view class="form-item half">
+        <view class="field-label">目的地</view>
+        <input class="input" placeholder="城市名称" value="{{city}}" bindinput="onCityInput" />
+      </view>
+      <view class="form-item half">
+        <view class="field-label">旅行天数</view>
+        <picker mode="selector" range="{{dayOptions}}" value="{{dayIndex}}" bindchange="onDayChange">
+          <view class="input">{{days}}天</view>
+        </picker>
+      </view>
+    </view>
+    <view class="form-row">
+      <view class="form-item half">
+        <view class="field-label">总预算（可选）</view>
+        <input class="input" type="number" placeholder="元" value="{{budgetText}}" bindinput="onBudgetInput" />
+      </view>
+      <view class="form-item half" style="display:flex;align-items:flex-end">
+        <button class="btn btn-primary btn-block" bindtap="generatePlan" disabled="{{loading}}">
+          {{loading ? '⏳ 规划中...' : '🚀 生成行程'}}
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 结果区域 -->
+  <view wx:if="{{result}}">
+    <view class="alert alert-success">
+       ✅ {{result.preferenceLabel}} · {{result.city}} · {{result.days}}天行程
+      <text class="tag {{result.source.includes('实时')?'tag-blue':result.source.includes('模板')?'tag-amber':''}}">{{result.source}}</text>
+    </view>
+
+    <view wx:if="{{result.weatherAvailable}}" class="alert alert-info">
+      🌤️ 已根据实时天气预报智能调整行程安排
+    </view>
+
+    <view wx:if="{{result.budgetPerDay}}" class="alert alert-info">
+      💰 日均预算约 ¥{{result.budgetPerDay}}
+    </view>
+
+    <!-- 每日行程 -->
+    <view wx:for="{{result.daily}}" wx:key="day" class="day-card">
+      <view class="day-header {{item.weather ? (item.weather.text.indexOf('雨')>=0 ? 'rainy' : item.weather.tempMax >= 35 ? 'hot' : 'sunny') : ''}}">
+        <text style="font-weight:700;font-size:15px">📅 {{item.date}} · 第{{item.day}}天</text>
+        <text wx:if="{{item.weather}}" style="font-size:13px">{{item.weather.icon}} {{item.weather.text}} {{item.weather.tempMin}}°~{{item.weather.tempMax}}°</text>
+      </view>
+
+      <view class="day-body">
+        <view wx:for="{{item.schedule}}" wx:for-item="s" wx:key="slot" class="timeline-step">
+          <view class="step-time">{{s.time}}</view>
+          <view class="step-label">{{s.icon}} {{s.label}}</view>
+          <view class="step-content">
+            <view class="step-name">{{s.poi.name}}</view>
+            <view wx:if="{{s.poi.address}}" class="step-addr">📍 {{s.poi.address}}</view>
+            <view wx:if="{{s.tip}}" class="step-tip">💡 {{s.tip}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:if="{{!result && !loading}}" class="empty">
+    <view class="empty-icon">🧠</view>
+    <view class="empty-text">选择偏好 → 输入目的地 → 点击生成
+      \n系统将自动聚合POI + 天气，智能编排每日行程</view>
+  </view>
+
+</view>
