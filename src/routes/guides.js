@@ -29,18 +29,18 @@ const cache = new NodeCache({ stdTTL: 3600 }); // 攻略缓存1小时
 const AMAP_KEY = process.env.AMAP_KEY;
 const CTRIP_AID = process.env.CTRIP_AID || '';
 
-// 加载策展景区数据库
-let scenicDB = null;
-function getScenicDB() {
-  if (!scenicDB) {
+// 加载5A景区数据库
+let scenic5aDB = null;
+function getScenic5aDB() {
+  if (!scenic5aDB) {
     try {
-      scenicDB = require('../data/scenic-areas.json');
+      scenic5aDB = require('../data/scenic-5a.json');
     } catch (e) {
-      console.error('[攻略] 景区数据库加载失败:', e.message);
-      scenicDB = { scenicAreas: [] };
+      console.error('[攻略] 5A景区数据库加载失败:', e.message);
+      scenic5aDB = { total: 0, provinces: [], flatList: [] };
     }
   }
-  return scenicDB;
+  return scenic5aDB;
 }
 
 /**
@@ -60,61 +60,114 @@ function genStaticMapUrl(lng, lat, zoom = 14) {
 
 /**
  * GET /api/guides/scenic
- * 景区导览 - 返回策展景区数据（含静态地图、收费、推荐路线）
+ * 景区导览 - 全国5A级景区数据库
  *
  * 参数:
- *   city - 目标城市（支持城市名和别名，如 "常州"/"溧阳"/"常州溧阳"）
+ *   province - 省份名（可选，筛选省份）
+ *   city     - 城市名（可选，支持模糊匹配，如"杭州"/"溧阳"/"常州溧阳"）
+ *   district - 区县名（可选，精确到县级市）
+ *   mode     - "list"(默认)返回景区列表 / "tree"返回省-市-县层级树
  *
- * 返回该城市的主要景区导览列表
+ * 无参数时返回所有省份有5A景区的城市概览
  */
 router.get('/scenic', (req, res) => {
-  const { city } = req.query;
-  if (!city) return res.status(400).json({ error: '缺少 city 参数' });
+  const { province, city, district, mode } = req.query;
 
-  const cacheKey = `scenic_${city}`;
-  const cached = cache.get(cacheKey);
-  if (cached) return res.json(cached);
+  const db = getScenic5aDB();
+  let flatList = db.flatList;
 
-  const db = getScenicDB();
-  const cityNorm = city.trim();
+  if (!flatList || flatList.length === 0) {
+    return res.json({ total: 0, data: [], hint: '5A景区数据库未加载' });
+  }
 
-  // 匹配城市：精确匹配city或cityAlias
-  const matched = db.scenicAreas.filter(area => {
-    if (area.city === cityNorm) return true;
-    if (area.cityAlias && area.cityAlias.some(alias =>
-      alias === cityNorm || cityNorm.includes(alias) || alias.includes(cityNorm)
-    )) return true;
-    return false;
-  });
+  // ---- mode=tree: 返回省-市-县层级浏览 ----
+  if (mode === 'tree') {
+    // 如果指定了province，只返回该省
+    let provinces = db.provinces;
+    if (province) {
+      const pNorm = province.trim();
+      provinces = provinces.filter(p => p.name === pNorm || p.name.includes(pNorm));
+    }
+    const tree = provinces.map(p => ({
+      province: p.name,
+      count: p.count,
+      cities: p.cities.map(c => ({
+        city: c.name,
+        count: c.count,
+        districts: c.districts.map(d => ({
+          district: d.name,
+          count: d.areas.length,
+          areas: d.areas.map(a => ({
+            name: a.name,
+            year: a.year,
+            ticket: a.ticket,
+            desc: a.desc,
+            coords: a.coords,
+            mapUrl: genStaticMapUrl(a.coords[0], a.coords[1])
+          }))
+        }))
+      }))
+    }));
+    return res.json({ total: db.total, provinces: tree, mapAvailable: !!AMAP_KEY });
+  }
 
-  // 为每个景区生成静态地图URL
-  const result = matched.map(area => ({
-    id: area.id,
-    name: area.name,
-    city: area.city,
-    district: area.district,
-    level: area.level,
-    overview: area.overview,
-    area: area.area,
-    entranceFee: area.entranceFee,
-    openHours: area.openHours,
-    bestSeason: area.bestSeason,
-    recommendedRoute: area.recommendedRoute,
-    highlights: area.highlights,
-    tips: area.tips,
-    transportation: area.transportation,
-    location: area.location,
-    mapUrl: genStaticMapUrl(area.location.lng, area.location.lat, area.mapZoom),
-    mapAvailable: !!AMAP_KEY
+  // ---- mode=list (默认): 按条件筛选景区列表 ----
+  let matched = flatList;
+
+  if (province) {
+    const pNorm = province.trim();
+    matched = matched.filter(a => a.province === pNorm || a.province.includes(pNorm));
+  }
+
+  if (city) {
+    const cNorm = city.trim();
+    matched = matched.filter(a => {
+      // 精确匹配城市
+      if (a.city === cNorm) return true;
+      // 模糊匹配：城市名包含输入 或 输入包含城市名
+      if (a.city.includes(cNorm) || cNorm.includes(a.city)) return true;
+      // 匹配区县名
+      if (a.district && (a.district === cNorm || a.district.includes(cNorm) || cNorm.includes(a.district))) return true;
+      // 匹配名称中包含（如"天目湖"可以匹配到"溧阳"）
+      if (a.name.includes(cNorm)) return true;
+      return false;
+    });
+  }
+
+  if (district) {
+    const dNorm = district.trim();
+    matched = matched.filter(a =>
+      a.district && (a.district === dNorm || a.district.includes(dNorm) || dNorm.includes(a.district))
+    );
+  }
+
+  // 生成结果（含静态地图URL）
+  const result = matched.map(a => ({
+    name: a.name,
+    province: a.province,
+    city: a.city,
+    district: a.district || '',
+    year: a.year,
+    ticket: a.ticket,
+    desc: a.desc,
+    coords: a.coords,
+    mapUrl: genStaticMapUrl(a.coords[0], a.coords[1])
   }));
 
+  // 统计覆盖的城市
+  const citySet = new Set(result.map(a => `${a.province}-${a.city}-${a.district}`));
+  
   const response = {
     total: result.length,
+    citiesCovered: citySet.size,
     mapAvailable: !!AMAP_KEY,
+    hasAMAPKey: !!AMAP_KEY,
     data: result
   };
 
-  cache.set(cacheKey, response);
+  // 缓存30分钟
+  const cacheKey = `scenic5a_${province || ''}_${city || ''}_${district || ''}_${mode || 'list'}`;
+  cache.set(cacheKey, response, 1800);
   res.json(response);
 });
 

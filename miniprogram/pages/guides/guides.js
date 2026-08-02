@@ -1,4 +1,4 @@
-// 悠行 - 攻略检索页面
+// 悠行 - 攻略检索页面 (5A景区版)
 const api = require('../../utils/api');
 const mock = require('../../utils/mock');
 
@@ -7,9 +7,11 @@ Page({
     keyword: '',
     list: [],
     scenicList: [],
+    scenicTotal: 0,
+    scenicCities: 0,
     searched: false,
     dataSource: 'mock',
-    hotTags: ['杭州', '常州', '苏州', '南京', '上海', '北京', '成都', '西安']
+    hotTags: ['杭州', '常州', '溧阳', '苏州', '南京', '上海', '北京', '成都', '西安', '黄山', '桂林']
   },
 
   onKeywordInput(e) {
@@ -33,19 +35,11 @@ Page({
     // 提取城市名（关键词中第一个词或整体）
     const cityMatch = keyword.split(/[\s,，、]+/)[0] || keyword;
 
-    // 同时获取景区导览
-    this.fetchScenicGuides(cityMatch);
-
-    // 攻略链接搜索（修复参数名 keyword -> keywords）
-    const res = await api.request('/api/guides/search', { keywords: keyword, city: cityMatch });
-
-    if (res && res.data && res.data.length > 0) {
-      api.updateDataSource('guides', 'live');
-      this.setData({ list: res.data, dataSource: 'live' });
-    } else {
-      const mockList = mock.mockGuides(keyword);
-      this.setData({ list: mockList, dataSource: 'mock' });
-    }
+    // 同时获取5A景区导览和攻略链接
+    await Promise.all([
+      this.fetchScenicGuides(cityMatch),
+      this.searchGuides(keyword, cityMatch)
+    ]);
 
     wx.hideLoading();
   },
@@ -54,29 +48,26 @@ Page({
     const res = await api.request('/api/guides/scenic', { city: city });
 
     if (res && res.data && res.data.length > 0) {
-      // 为每个景区添加 expanded 字段
-      const scenicList = res.data.map(s => ({
-        ...s,
-        expanded: false,
-        recommendedRoute: s.recommendedRoute || [],
-        highlights: s.highlights || [],
-        tips: s.tips || []
-      }));
-      this.setData({ scenicList });
+      this.setData({
+        scenicList: res.data,
+        scenicTotal: res.total,
+        scenicCities: res.citiesCovered || 1
+      });
     } else {
-      this.setData({ scenicList: [] });
+      this.setData({ scenicList: [], scenicTotal: 0, scenicCities: 0 });
     }
   },
 
-  toggleScenic(e) {
-    const id = e.currentTarget.dataset.id;
-    const scenicList = this.data.scenicList.map(s => {
-      if (s.id === id) {
-        return { ...s, expanded: !s.expanded };
-      }
-      return s;
-    });
-    this.setData({ scenicList });
+  async searchGuides(keyword, city) {
+    const res = await api.request('/api/guides/search', { keywords: keyword, city: city });
+
+    if (res && res.data && res.data.length > 0) {
+      api.updateDataSource('guides', 'live');
+      this.setData({ list: res.data, dataSource: 'live' });
+    } else {
+      const mockList = mock.mockGuides(keyword);
+      this.setData({ list: mockList, dataSource: 'mock' });
+    }
   },
 
   previewMap(e) {
@@ -89,7 +80,6 @@ Page({
   openGuide(e) {
     const url = e.currentTarget.dataset.url;
     if (url) {
-      // 小程序中无法直接打开外部链接，复制到剪贴板
       wx.setClipboardData({
         data: url,
         success: () => {
