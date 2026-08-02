@@ -12,13 +12,112 @@
     </view>
   </view>
 
-  <!-- 结果列表 -->
+  <!-- 景区导览 -->
+  <view wx:if="{{scenicList.length > 0}}">
+    <view class="scenic-section-title">🏞️ 景区导览
+      <text class="tag tag-blue" style="margin-left:6px">{{scenicList.length}} 处</text>
+    </view>
+    <view wx:for="{{scenicList}}" wx:for-item="scenic" wx:key="id" class="scenic-card">
+      <!-- 景区头部 -->
+      <view class="scenic-head">
+        <view class="scenic-name">{{index === 0 ? '⭐ ' : ''}}{{scenic.name}}</view>
+        <view class="scenic-badges">
+          <text class="tag tag-blue" style="font-size:10px">{{scenic.level}}</text>
+          <text wx:if="{{scenic.district}}" class="tag" style="font-size:10px">{{scenic.district}}</text>
+          <text wx:if="{{scenic.area}}" class="muted" style="font-size:10px">{{scenic.area}}</text>
+        </view>
+        <view class="scenic-overview">{{scenic.overview}}</view>
+      </view>
+
+      <!-- 景区地图 -->
+      <view class="scenic-map-wrap">
+        <image wx:if="{{scenic.mapUrl}}" class="scenic-map-img" src="{{scenic.mapUrl}}" mode="aspectFill" bindtap="previewMap" data-url="{{scenic.mapUrl}}" />
+        <view wx:else class="scenic-map-placeholder">
+          <text style="font-size:32px">🗺️</text>
+          <text style="font-size:11px">配置Key后可显示景区地图</text>
+        </view>
+      </view>
+
+      <!-- 基本信息行 -->
+      <view class="scenic-info-row">
+        <view class="scenic-info-item">
+          <text class="scenic-info-label">🕒 开放:</text>
+          <text class="scenic-info-value">{{scenic.openHours}}</text>
+        </view>
+        <view class="scenic-info-item">
+          <text class="scenic-info-label">🌤️ 最佳:</text>
+          <text class="scenic-info-value">{{scenic.bestSeason}}</text>
+        </view>
+      </view>
+
+      <!-- 展开/收起按钮 -->
+      <view class="scenic-toggle" bindtap="toggleScenic" data-id="{{scenic.id}}">
+        <text>{{scenic.expanded ? '▼ 收起' : '▶ 展开推荐路线 & 亮点 & 贴士'}}</text>
+      </view>
+
+      <!-- 展开详情 -->
+      <view wx:if="{{scenic.expanded}}" class="scenic-detail">
+        <!-- 门票价格 -->
+        <view class="scenic-fee-box">
+          <view class="scenic-fee-title">🎫 门票价格</view>
+          <view wx:if="{{scenic.entranceFee.adult}}" class="scenic-fee-row">
+            <text class="muted">成人</text>
+            <text style="font-weight:600">{{scenic.entranceFee.adult}}</text>
+          </view>
+          <view wx:if="{{scenic.entranceFee.child}}" class="scenic-fee-row">
+            <text class="muted">儿童</text>
+            <text>{{scenic.entranceFee.child}}</text>
+          </view>
+          <view wx:if="{{scenic.entranceFee.student}}" class="scenic-fee-row">
+            <text class="muted">学生</text>
+            <text>{{scenic.entranceFee.student}}</text>
+          </view>
+          <view wx:if="{{scenic.entranceFee.free}}" class="scenic-fee-row">
+            <text class="muted">免费</text>
+            <text style="font-size:11px">{{scenic.entranceFee.free}}</text>
+          </view>
+          <view wx:if="{{scenic.entranceFee.note}}" class="scenic-fee-note">ℹ️ {{scenic.entranceFee.note}}</view>
+        </view>
+
+        <!-- 推荐路线 -->
+        <view wx:if="{{scenic.recommendedRoute.length > 0}}">
+          <view class="scenic-route-title">🗺️ 推荐路线</view>
+          <view wx:for="{{scenic.recommendedRoute}}" wx:for-item="route" wx:key="time" class="scenic-route-item">
+            <view class="scenic-route-time">{{route.time}}</view>
+            <view style="flex:1">
+              <view class="scenic-route-spot">{{route.spot}}</view>
+              <view class="scenic-route-desc">{{route.description}}</view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 亮点 -->
+        <view wx:if="{{scenic.highlights.length > 0}}">
+          <view class="scenic-sub-title">✨ 亮点</view>
+          <view class="scenic-highlights">
+            <text wx:for="{{scenic.highlights}}" wx:for-item="h" wx:key="*this" class="scenic-highlight-tag">{{h}}</text>
+          </view>
+        </view>
+
+        <!-- 贴士 -->
+        <view wx:if="{{scenic.tips.length > 0}}">
+          <view class="scenic-sub-title">出行贴士</view>
+          <view wx:for="{{scenic.tips}}" wx:for-item="tip" wx:key="*this" class="scenic-tip-item">💡 {{tip}}</view>
+        </view>
+
+        <!-- 交通 -->
+        <view wx:if="{{scenic.transportation}}" class="scenic-transport">🚌 {{scenic.transportation}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 攻略链接检索结果 -->
   <view wx:if="{{list.length > 0}}">
     <view class="card">
-      <view class="card-title">📖 搜索结果
+      <view class="card-title">📖 攻略链接
         <text wx:if="{{dataSource === 'live'}}" class="tag tag-blue">实时</text>
       </view>
-      <view wx:for="{{list}}" wx:key="title" class="guide-card">
+      <view wx:for="{{list}}" wx:key="title" class="guide-card" bindtap="openGuide" data-url="{{item.url}}">
         <view class="guide-title">{{item.title}}</view>
         <view class="guide-summary">{{item.summary}}</view>
         <view class="tag-row">
@@ -30,7 +129,7 @@
   </view>
 
   <!-- 空状态 -->
-  <view wx:elif="{{searched && list.length === 0}}" class="empty-state">
+  <view wx:elif="{{searched && list.length === 0 && scenicList.length === 0}}" class="empty-state">
     <text class="empty-icon">📚</text>
     <text>没有找到「{{keyword}}」相关的攻略</text>
     <text style="font-size:12px;display:block;margin-top:8px">试试搜索：杭州、三日游、美食</text>

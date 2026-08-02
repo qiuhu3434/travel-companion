@@ -22,11 +22,101 @@
 const express = require('express');
 const axios = require('axios');
 const NodeCache = require('node-cache');
+const path = require('path');
 
 const router = express.Router();
 const cache = new NodeCache({ stdTTL: 3600 }); // 攻略缓存1小时
 const AMAP_KEY = process.env.AMAP_KEY;
 const CTRIP_AID = process.env.CTRIP_AID || '';
+
+// 加载策展景区数据库
+let scenicDB = null;
+function getScenicDB() {
+  if (!scenicDB) {
+    try {
+      scenicDB = require('../data/scenic-areas.json');
+    } catch (e) {
+      console.error('[攻略] 景区数据库加载失败:', e.message);
+      scenicDB = { scenicAreas: [] };
+    }
+  }
+  return scenicDB;
+}
+
+/**
+ * 生成高德静态地图URL
+ * @param {number} lng - 经度
+ * @param {number} lat - 纬度
+ * @param {number} zoom - 缩放级别
+ * @returns {string|null} 静态地图图片URL，无Key时返回null
+ */
+function genStaticMapUrl(lng, lat, zoom = 14) {
+  if (!AMAP_KEY) return null;
+  const loc = `${lng},${lat}`;
+  // 高德静态地图API：标记点+标注文字
+  const markers = `mid,0xFF6B6B,${lng},${lat}`;
+  return `https://restapi.amap.com/v3/staticmap?location=${loc}&zoom=${zoom}&size=680*400&scale=2&markers=${markers}&key=${AMAP_KEY}`;
+}
+
+/**
+ * GET /api/guides/scenic
+ * 景区导览 - 返回策展景区数据（含静态地图、收费、推荐路线）
+ *
+ * 参数:
+ *   city - 目标城市（支持城市名和别名，如 "常州"/"溧阳"/"常州溧阳"）
+ *
+ * 返回该城市的主要景区导览列表
+ */
+router.get('/scenic', (req, res) => {
+  const { city } = req.query;
+  if (!city) return res.status(400).json({ error: '缺少 city 参数' });
+
+  const cacheKey = `scenic_${city}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return res.json(cached);
+
+  const db = getScenicDB();
+  const cityNorm = city.trim();
+
+  // 匹配城市：精确匹配city或cityAlias
+  const matched = db.scenicAreas.filter(area => {
+    if (area.city === cityNorm) return true;
+    if (area.cityAlias && area.cityAlias.some(alias =>
+      alias === cityNorm || cityNorm.includes(alias) || alias.includes(cityNorm)
+    )) return true;
+    return false;
+  });
+
+  // 为每个景区生成静态地图URL
+  const result = matched.map(area => ({
+    id: area.id,
+    name: area.name,
+    city: area.city,
+    district: area.district,
+    level: area.level,
+    overview: area.overview,
+    area: area.area,
+    entranceFee: area.entranceFee,
+    openHours: area.openHours,
+    bestSeason: area.bestSeason,
+    recommendedRoute: area.recommendedRoute,
+    highlights: area.highlights,
+    tips: area.tips,
+    transportation: area.transportation,
+    location: area.location,
+    mapUrl: genStaticMapUrl(area.location.lng, area.location.lat, area.mapZoom),
+    mapAvailable: !!AMAP_KEY
+  }));
+
+  const response = {
+    total: result.length,
+    mapAvailable: !!AMAP_KEY,
+    data: result
+  };
+
+  cache.set(cacheKey, response);
+  res.json(response);
+});
 
 /**
  * GET /api/guides/search

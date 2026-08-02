@@ -147,6 +147,39 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .similarity-bar{height:5px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden}
 .similarity-fill{height:100%;background:linear-gradient(90deg,var(--primary),#2dd4bf);border-radius:3px;transition:width .6s}
 
+/* Scenic area guide cards */
+.scenic-card{border:1px solid var(--border);border-radius:12px;padding:0;margin-bottom:14px;overflow:hidden;transition:all .2s;background:var(--card)}
+.scenic-card:hover{box-shadow:var(--shadow-md)}
+.scenic-head{padding:14px 16px 10px}
+.scenic-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.scenic-badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.scenic-overview{font-size:12px;color:var(--text-light);margin-top:8px;line-height:1.6}
+.scenic-map-wrap{margin:10px 0;position:relative;background:var(--bg)}
+.scenic-map-img{width:100%;display:block;border-radius:8px;cursor:zoom-in;min-height:120px;background:var(--bg)}
+.scenic-map-placeholder{width:100%;height:180px;display:flex;align-items:center;justify-content:center;flex-direction:column;background:var(--bg);border-radius:8px;color:var(--text-muted);font-size:12px}
+.scenic-info-row{display:flex;flex-wrap:wrap;gap:8px 16px;padding:0 16px;font-size:12px}
+.scenic-info-item{display:flex;align-items:flex-start;gap:4px}
+.scenic-info-label{color:var(--text-muted);white-space:nowrap}
+.scenic-info-value{color:var(--text);font-weight:500}
+.scenic-toggle{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px;border-top:1px solid var(--border);cursor:pointer;font-size:12px;font-weight:600;color:var(--primary);transition:background .15s}
+.scenic-toggle:hover{background:var(--bg)}
+.scenic-detail{display:none;padding:12px 16px;border-top:1px solid var(--border)}
+.scenic-detail.show{display:block}
+.scenic-fee-box{background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.scenic-fee-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0}
+.scenic-fee-note{font-size:11px;color:var(--text-muted);margin-top:4px;font-style:italic}
+.scenic-route-title{font-size:13px;font-weight:700;margin:8px 0 6px}
+.scenic-route-item{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)}
+.scenic-route-time{font-size:12px;font-weight:700;color:var(--primary-dark);white-space:nowrap;min-width:42px}
+.scenic-route-spot{font-size:12px;font-weight:600}
+.scenic-route-desc{font-size:11px;color:var(--text-light);margin-top:2px}
+.scenic-highlights{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.scenic-highlight-tag{font-size:11px;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;padding:2px 8px;border-radius:6px}
+.scenic-tips{list-style:none;padding:0;margin:6px 0}
+.scenic-tip-item{font-size:11px;color:var(--text-light);padding:3px 0;padding-left:16px;position:relative}
+.scenic-tip-item::before{content:'💡';position:absolute;left:0}
+.scenic-transport{font-size:11px;color:var(--primary);background:#e0f2fe;padding:6px 10px;border-radius:6px;margin-top:6px}
+
 /* Route timeline */
 .timeline{position:relative;padding-left:24px}
 .timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--border)}
@@ -340,8 +373,9 @@ input,select,textarea{font-family:inherit}
             <input type="text" class="budget-input" id="guide-query" placeholder="输入目的地 / 关键词..." value="">
             <button class="btn btn-primary btn-sm" onclick="searchGuides()">🔍 检索</button>
           </div>
+          <div id="scenic-results"></div>
           <div id="guide-results">
-            <div class="empty"><div class="empty-icon">📖</div><div>填写旅行地点后点击检索，<br>系统将从高德地图、携程、小红书获取攻略</div></div>
+            <div class="empty"><div class="empty-icon">📖</div><div>填写旅行地点后点击检索，<br>系统将展示景区导览及攻略链接</div></div>
           </div>
         </div>
       </div>
@@ -447,6 +481,7 @@ const state={
   prep:{},
   budget:{mode:1,total:0,selectedPlan:0,fillData:{}},
   guides:[],
+  scenicGuides:[],
   city:'杭州',  // 默认城市
   plan:{recommendations:null,selections:{food:[],outdoor:[],culture:[]},activeTab:'food',days:3,budget:0,result:null,loading:false}
 };
@@ -1247,6 +1282,9 @@ async function searchGuides(){
   const resultsDiv=document.getElementById('guide-results');
   resultsDiv.innerHTML='<div class="empty"><div class="empty-icon" style="animation:spin 1s linear infinite">🔍</div><div>正在从高德/携程/小红书检索攻略...</div></div>';
 
+  // 同时加载景区导览
+  fetchScenicGuides(state.city);
+
   // 优先调用后端API聚合搜索
   const apiResult=await apiFetch('/api/guides/search',{keywords:q,city:state.city});
   if(apiResult&&apiResult.data&&apiResult.data.length>0){
@@ -1304,6 +1342,97 @@ function renderGuides(){
       ${noteHtml}
     </div>`;
   }).join('');
+}
+
+/* ==================== 景区导览 ==================== */
+async function fetchScenicGuides(city){
+  const scenicDiv=document.getElementById('scenic-results');
+  if(!city||!city.trim()){scenicDiv.innerHTML='';return;}
+  scenicDiv.innerHTML='<div class="empty" style="padding:12px"><div class="empty-icon" style="animation:spin 1s linear inline-block">🗺️</div><div style="font-size:12px">正在加载'+city+'的景区导览...</div></div>';
+
+  const result=await apiFetch('/api/guides/scenic',{city:city});
+  if(result&&result.data&&result.data.length>0){
+    state.scenicGuides=result.data;
+    renderScenicGuides();
+  }else{
+    state.scenicGuides=[];
+    scenicDiv.innerHTML='<div class="alert alert-info" style="font-size:11px;padding:8px 12px;margin-top:8px">ℹ️ 该城市暂无策展景区数据，请查看下方攻略链接</div>';
+  }
+}
+
+function renderScenicGuides(){
+  const c=document.getElementById('scenic-results');
+  if(!state.scenicGuides||state.scenicGuides.length===0){c.innerHTML='';return;}
+  c.innerHTML='<div style="font-size:13px;font-weight:700;margin:8px 0 4px;padding:0 4px">🏞️ 景区导览 <span class="badge badge-teal" style="margin-left:6px">'+state.scenicGuides.length+' 处</span></div>';
+  c.innerHTML+=state.scenicGuides.map((s,i)=>{
+    const feeHtml=renderScenicFee(s.entranceFee);
+    const routeHtml=(s.recommendedRoute||[]).map(function(r,idx){
+      return '<div class="scenic-route-item">'+
+        '<div class="scenic-route-time">'+r.time+'</div>'+
+        '<div>'+
+        '<div class="scenic-route-spot">'+r.spot+'</div>'+
+        '<div class="scenic-route-desc">'+r.description+'</div>'+
+        '</div></div>';
+    }).join('');
+    const highlightsHtml=(s.highlights||[]).map(function(h){return '<span class="scenic-highlight-tag">'+h+'</span>';}).join('');
+    const tipsHtml=(s.tips||[]).map(function(t){return '<li class="scenic-tip-item">'+t+'</li>';}).join('');
+    const mapImg='src="'+s.mapUrl+'" alt="'+s.name+'地图" onclick="window.open(this.src,\'_blank\')"';
+    const mapHtml=s.mapUrl
+      ?'<img class="scenic-map-img" '+mapImg+' />'
+      :'<div class="scenic-map-placeholder"><div style="font-size:32px">🗺️</div><div>配置AMAP_KEY后可显示景区地图</div></div>';
+    return '<div class="scenic-card" id="scenic-'+s.id+'">'+
+      '<div class="scenic-head">'+
+        '<div class="scenic-name">'+(i===0?'⭐ ':'')+(s.name||'')+'</div>'+
+        '<div class="scenic-badges">'+
+          '<span class="badge badge-blue" style="font-size:10px">'+(s.level||'')+'</span>'+
+          (s.district?'<span class="tag" style="font-size:10px">'+s.district+'</span>':'')+
+          (s.area?'<span class="muted" style="font-size:10px">'+s.area+'</span>':'')+
+        '</div>'+
+        '<div class="scenic-overview">'+(s.overview||'')+'</div>'+
+      '</div>'+
+      '<div style="padding:0 16px"><div class="scenic-map-wrap">'+mapHtml+'</div></div>'+
+      '<div class="scenic-info-row">'+
+        '<div class="scenic-info-item"><span class="scenic-info-label">🕒 开放:</span><span class="scenic-info-value">'+(s.openHours||'')+'</span></div>'+
+        '<div class="scenic-info-item"><span class="scenic-info-label">🌤️ 最佳:</span><span class="scenic-info-value">'+(s.bestSeason||'')+'</span></div>'+
+      '</div>'+
+      '<div class="scenic-toggle" onclick="toggleScenicDetail(\''+s.id+'\')">'+
+        '<span id="toggle-text-'+s.id+'">▶ 展开推荐路线 & 亮点 & 贴士</span>'+
+      '</div>'+
+      '<div class="scenic-detail" id="detail-'+s.id+'">'+
+        '<div class="scenic-fee-box">'+
+          '<div style="font-size:12px;font-weight:700;margin-bottom:4px">🎫 门票价格</div>'+
+          feeHtml+
+        '</div>'+
+        (routeHtml?'<div class="scenic-route-title">🗺️ 推荐路线</div>'+routeHtml:'')+
+        (highlightsHtml?'<div style="font-size:12px;font-weight:700;margin:8px 0 4px">✨ 亮点</div><div class="scenic-highlights">'+highlightsHtml+'</div>':'')+
+        (tipsHtml?'<div style="font-size:12px;font-weight:700;margin:8px 0 2px">出行贴士</div><ul class="scenic-tips">'+tipsHtml+'</ul>':'')+
+        (s.transportation?'<div class="scenic-transport">🚌 '+s.transportation+'</div>':'')+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderScenicFee(fee){
+  if(!fee)return '<div class="scenic-fee-row"><span>请咨询景区</span></div>';
+  let html='';
+  if(fee.adult)html+='<div class="scenic-fee-row"><span style="color:var(--text-muted)">成人</span><span style="font-weight:600">'+fee.adult+'</span></div>';
+  if(fee.child)html+='<div class="scenic-fee-row"><span style="color:var(--text-muted)">儿童</span><span>'+fee.child+'</span></div>';
+  if(fee.student)html+='<div class="scenic-fee-row"><span style="color:var(--text-muted)">学生</span><span>'+fee.student+'</span></div>';
+  if(fee.free)html+='<div class="scenic-fee-row"><span style="color:var(--text-muted)">免费</span><span style="font-size:11px">'+fee.free+'</span></div>';
+  if(fee.note)html+='<div class="scenic-fee-note">ℹ️ '+fee.note+'</div>';
+  return html;
+}
+
+function toggleScenicDetail(id){
+  const detail=document.getElementById('detail-'+id);
+  const toggleText=document.getElementById('toggle-text-'+id);
+  if(detail.classList.contains('show')){
+    detail.classList.remove('show');
+    toggleText.innerHTML='▶ 展开推荐路线 & 亮点 & 贴士';
+  }else{
+    detail.classList.add('show');
+    toggleText.innerHTML='▼ 收起';
+  }
 }
 
 /* ==================== Modal ==================== */
@@ -1628,6 +1757,8 @@ renderLocList();
 renderRoute('big');
 // Auto-fill guide query based on default destination
 document.getElementById('guide-query').value='杭州 西湖';
+// Auto-load scenic guides for default city
+fetchScenicGuides(state.city);
 // 检查后端API连接状态
 checkBackendStatus();
 </script>
