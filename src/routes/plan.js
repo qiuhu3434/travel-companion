@@ -31,10 +31,21 @@ const QWEATHER_GEO = process.env.QWEATHER_HOST
 
 const POI_TYPES = {
   scenic:   '110000', // 风景名胜
-  culture:  '140000', // 科教文化
+  culture:  '140000', // 科教文化（仅用于子类筛选）
   food:     '050000', // 餐饮
   shopping: '060000', // 购物
   park:     '110100', // 公园广场
+  museum:   '140100', // 博物馆
+  gallery:  '141400', // 美术馆
+  science:  '140900', // 科技馆/天文馆
+  exhibit:  '140200', // 展览馆/会展中心
+  memorial: '141300', // 纪念馆
+  culture_palace: '141100', // 文化宫
+  amusement: '080100', // 游乐场/主题乐园
+  aquarium: '080600', // 水族馆/海洋馆
+  zoo:      '080500', // 动物园
+  theater:  '080200', // 剧院/音乐厅
+  botanical: '080700', // 植物园
 };
 
 // 三列表搜索策略
@@ -52,10 +63,24 @@ const SEARCH_PLANS = {
     { kw: '自然风光', type: POI_TYPES.scenic },
   ],
   culture: [
-    { kw: '博物馆', type: POI_TYPES.culture },
-    { kw: '古迹', type: POI_TYPES.culture },
-    { kw: '寺庙', type: POI_TYPES.culture },
-    { kw: '名人故居', type: POI_TYPES.culture },
+    // 博物馆/展览类 — 精确子类，不会拉入学校/驾校
+    { kw: '博物馆', type: POI_TYPES.museum },
+    { kw: '展览馆', type: POI_TYPES.exhibit },
+    { kw: '美术馆', type: POI_TYPES.gallery },
+    { kw: '科技馆', type: POI_TYPES.science },
+    { kw: '纪念馆', type: POI_TYPES.memorial },
+    // 历史人文类 — 不限类型，仅靠关键词
+    { kw: '寺庙', type: '' },
+    { kw: '名人故居', type: '' },
+    { kw: '古城', type: POI_TYPES.scenic },
+    { kw: '大学校园', type: '' },
+    // 娱乐/游乐类
+    { kw: '游乐场', type: POI_TYPES.amusement },
+    { kw: '主题乐园', type: POI_TYPES.amusement },
+    { kw: '水族馆', type: POI_TYPES.aquarium },
+    { kw: '动物园', type: POI_TYPES.zoo },
+    { kw: '植物园', type: POI_TYPES.botanical },
+    { kw: '剧院', type: POI_TYPES.theater },
   ],
 };
 
@@ -114,6 +139,58 @@ function isIndoor(poi) {
     '室内', '电影', '剧院', '艺术馆', '纪念馆', '寺庙'];
   const name = (poi.name || '') + (poi.type || '');
   return indoorKeywords.some(k => name.includes(k));
+}
+
+/** 过滤非游客可访问的专业/机构场所（中小学、驾校、考试中心等） */
+const NON_TOURIST_PATTERNS = [
+  /小学|中学|初中|高中|幼儿园|特殊教育/,
+  /驾校|驾驶员|考试中心|检测站|车管所/,
+  /培训中心|培训机构|补习/,
+  /政务中心|行政中心|服务中心|服务站/,
+  /派出所|法院|检察院|公安局/,
+  /卫生服务站|卫生院|医院|诊所/,
+  /公墓|殡仪|陵园/,
+  /戒毒|看守|监狱/,
+];
+
+function isValidTouristAttraction(poi) {
+  const name = poi.name || '';
+  const type = poi.type || '';
+  // 白名单：明确可参观的类型优先通过
+  const allowedTypes = [
+    '博物馆', '展览馆', '美术馆', '科技馆', '天文馆', '纪念馆',
+    '游乐场', '主题乐园', '水族馆', '海洋馆', '动物园', '植物园',
+    '剧院', '音乐厅', '文化宫', '图书馆', '名人故居', '寺庙',
+    '道观', '教堂', '清真寺', '古迹', '遗址', '古城',
+    '公园', '风景名胜', '广场',
+  ];
+  if (allowedTypes.some(t => name.includes(t) || type.includes(t))) return true;
+
+  // 大学/学院：允许（校园可参观），但排除职业学院/技术学院
+  const exclCollege = /职业技术|技师|技工/;
+  if (/大学/.test(name) && !exclCollege.test(name)) return true;
+  if (/学院/.test(name) && !exclCollege.test(name) && !/行政/.test(name)) return true;
+
+  // 黑名单：专业/机构场所
+  if (NON_TOURIST_PATTERNS.some(p => p.test(name) || p.test(type))) return false;
+
+  // 兜底：类型分类判断 — 明确不要的专业/机构子类
+  // 高德返回的 type 格式为 "大��;中类;小类"，如 "科教文化服务;学校;中学"
+  const excludedTypeCats = [
+    '学校', '科研机构', '培训机构', '驾校', '档案馆',
+    '政府机关', '社会团体', '交通服务',
+    '诊所', '急救中心',
+  ];
+  const typeSegments = type.split(';');
+  const hasExcludedType = typeSegments.some(seg =>
+    excludedTypeCats.some(cat => seg.includes(cat))
+  );
+  if (hasExcludedType) {
+    // 再检查一次白名单关键词，避免误杀（如"博物馆"也会落在科教文化大类）
+    if (!allowedTypes.some(t => name.includes(t))) return false;
+  }
+
+  return true;
 }
 
 /* ================================================================
@@ -248,17 +325,30 @@ router.post('/recommend', async (req, res) => {
             if (name2.includes('湿地') || name2.includes('森林')) entry.tags.push('自然');
           }
           if (cat === 'culture') {
-            const name2 = (p.name || '').toLowerCase();
+            const name2 = p.name || '';
             if (name2.includes('博物馆')) entry.tags.push('博物馆');
-            if (name2.includes('寺') || name2.includes('庙')) entry.tags.push('寺庙');
+            if (name2.includes('美术馆')) entry.tags.push('美术馆');
+            if (name2.includes('科技馆') || name2.includes('天文馆')) entry.tags.push('科技馆');
+            if (name2.includes('展览馆') || name2.includes('会展')) entry.tags.push('展览馆');
+            if (name2.includes('纪念馆')) entry.tags.push('纪念馆');
+            if (name2.includes('寺') || name2.includes('庙') || name2.includes('道观') || name2.includes('教堂')) entry.tags.push('寺庙/宗教');
             if (name2.includes('故居')) entry.tags.push('故居');
             if (name2.includes('遗址') || name2.includes('古城')) entry.tags.push('遗址');
+            if (name2.includes('游乐场') || name2.includes('主题乐园') || name2.includes('乐园')) entry.tags.push('游乐场');
+            if (name2.includes('水族馆') || name2.includes('海洋馆')) entry.tags.push('水族馆');
+            if (name2.includes('动物园')) entry.tags.push('动物园');
+            if (name2.includes('植物园')) entry.tags.push('植物园');
+            if (name2.includes('大学') || name2.includes('学院')) entry.tags.push('大学');
+            if (name2.includes('剧院') || name2.includes('音乐厅')) entry.tags.push('剧院');
           }
 
           results[cat].push(entry);
         });
       });
     }
+
+    // 人文类：过滤掉非游客可访问的专业/机构场所
+    results.culture = results.culture.filter(isValidTouristAttraction);
 
     // 按评分排序
     for (const cat of ['food', 'outdoor', 'culture']) {
@@ -337,7 +427,11 @@ router.post('/generate', async (req, res) => {
     });
 
     // 景点（户外+人文合并）
-    const allAttrResults = [...outdoorResults, ...cultureResults];
+    // 先过滤掉人文类中非游客可访问的专业/机构场所
+    const filteredCulture = cultureResults.map(arr =>
+      arr.filter(isValidTouristAttraction)
+    );
+    const allAttrResults = [...outdoorResults, ...filteredCulture];
     allAttrResults.forEach(arr => {
       arr.forEach(p => {
         if (seenNames.has(p.name)) return;
