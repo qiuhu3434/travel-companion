@@ -54,13 +54,10 @@
   <view wx:elif="{{searched && list.length === 0 && scenicList.length === 0}}" class="empty-state">
     <text class="empty-icon">📚</text>
     <text>没有找到「{{keyword}}」相关的5A景区或攻略</text>
-    <text style="font-size:12px;display:block;margin-top:8px">试试搜索：杭州、黄山、桂林、西安</text>
   </view>
 
   <view wx:else class="empty-state">
     <text class="empty-icon">🔍</text>
-    <text>输入城市名搜索5A景区和旅行攻略</text>
-    <text style="font-size:12px;display:block;margin-top:8px">覆盖全国358家5A级旅游景区</text>
   </view>
 
 </view>

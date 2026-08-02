@@ -25,9 +25,6 @@
     <button class="btn {{recommendations?'btn-outline':'btn-primary'}} btn-block" bindtap="fetchRecommendations" disabled="{{loading}}">
       {{loading ? '⏳ 获取中...' : (recommendations ? '🔄 刷新推荐' : '🔍 获取推荐')}}
     </button>
-    <view wx:if="{{!recommendations}}" class="hint" style="margin-top:8px;font-size:12px;color:var(--text-muted)">
-      👆 输入城市后点击"获取推荐"，系统将从高德拉取美食、户外、人文三类地��供你挑选
-    </view>
   </view>
 
   <!-- 推荐列表 -->
@@ -139,8 +136,6 @@
   <!-- 空状态 -->
   <view wx:if="{{!recommendations && !result && !loading}}" class="empty">
     <view class="empty-icon">🧠</view>
-    <view class="empty-text">输入目的地 → 获取推荐 → 勾选想去的地方 → 生成行程
-      \n餐厅固定在午餐/晚餐时间，不会塞进景点列表</view>
   </view>
 
 </view>

@@ -48,13 +48,10 @@
   <view wx:elif="{{searched && list.length === 0}}" class="empty-state">
     <text class="empty-icon">🗺️</text>
     <text>没有找到「{{keyword}}」相关的地点</text>
-    <text style="font-size:12px;display:block;margin-top:8px">试试换个关键词，或检查城市名称</text>
   </view>
 
   <view wx:else class="empty-state">
     <text class="empty-icon">🔍</text>
-    <text>输入关键词搜索酒店、餐厅、景点</text>
-    <text style="font-size:12px;display:block;margin-top:8px">当前城市：{{city}}</text>
   </view>
 
 </view>

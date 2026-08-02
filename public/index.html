@@ -274,6 +274,33 @@ input,select,textarea{font-family:inherit}
 .src-template{background:#fef3c7;color:#92400e}
 .src-fallback{background:#fee2e2;color:#991b1b}
 .budget-tip{background:var(--primary-light);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px}
+
+/* ===== 城市主题英雄区 ===== */
+.city-hero{position:relative;border-radius:var(--radius);overflow:hidden;margin-bottom:20px;min-height:200px;display:flex;align-items:flex-end;box-shadow:var(--shadow-md);transition:all .6s cubic-bezier(.4,0,.2,1)}
+.city-hero::before{content:'';position:absolute;inset:0;background:var(--hero-gradient,linear-gradient(135deg,#0d9488,#0f766e));opacity:.85;z-index:1;transition:opacity .6s}
+.city-hero.has-image::before{opacity:.5}
+.city-hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;transition:transform 8s ease;filter:brightness(.7)}
+.city-hero:hover .city-hero-img{transform:scale(1.05)}
+.city-hero-content{position:relative;z-index:2;padding:28px 32px;width:100%}
+.city-hero-name{font-size:32px;font-weight:800;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.3);margin-bottom:4px;letter-spacing:2px}
+.city-hero-sub{font-size:14px;color:rgba(255,255,255,.85);margin-bottom:12px}
+.city-hero-tags{display:flex;flex-wrap:wrap;gap:8px}
+.city-hero-tag{background:rgba(255,255,255,.2);backdrop-filter:blur(8px);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;border:1px solid rgba(255,255,255,.15);transition:all .3s}
+.city-hero-tag:hover{background:rgba(255,255,255,.35);transform:translateY(-1px)}
+.city-hero-decor{position:absolute;z-index:1;opacity:.06;font-size:180px;pointer-events:none;user-select:none}
+.city-hero-decor.tl{top:-40px;left:-20px}
+.city-hero-decor.br{bottom:-40px;right:-20px}
+
+/* body 主题色切换 */
+body.theme-active{transition:background .8s}
+body.theme-active::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.03;background:var(--theme-pattern,radial-gradient(circle at 50% 0%,var(--primary),transparent 70%))}
+
+@media(max-width:768px){
+  .city-hero{min-height:150px}
+  .city-hero-name{font-size:24px}
+  .city-hero-content{padding:20px}
+}
+
 </style>
 </head>
 <body>
@@ -322,6 +349,19 @@ input,select,textarea{font-family:inherit}
 
   <!-- Main -->
   <div class="main">
+
+    <!-- 城市主题英雄区 -->
+    <div class="city-hero" id="city-hero" style="display:none">
+      <img class="city-hero-img" id="city-hero-img" src="" alt="" onerror="this.style.display='none'">
+      <div class="city-hero-decor tl" id="hero-decor-tl"></div>
+      <div class="city-hero-decor br" id="hero-decor-br"></div>
+      <div class="city-hero-content">
+        <div class="city-hero-name" id="hero-name"></div>
+        <div class="city-hero-sub" id="hero-desc"></div>
+        <div class="city-hero-tags" id="hero-tags"></div>
+      </div>
+    </div>
+
     <!-- Top Panels: Budget + Guides -->
     <div class="top-panels">
       <!-- Budget Panel -->
@@ -342,12 +382,10 @@ input,select,textarea{font-family:inherit}
               <span>元</span>
             </div>
             <div id="plan-list" style="display:none">
-              <p class="muted" style="font-size:12px;margin-bottom:10px">系统已根据总金额生成以下分配方案，请选择其一：</p>
               <div id="plans-container"></div>
             </div>
           </div>
           <div id="budget-mode2" style="display:none">
-            <p class="muted" style="font-size:12px;margin-bottom:10px">逐日填写各板块花费，系统将分类汇总并预估总额，不合理项将自动指正。</p>
             <div id="budget-fill-area"></div>
             <button class="btn btn-primary btn-sm mt-16" onclick="summarizeBudget()">汇总预估</button>
             <div id="budget-summary"></div>
@@ -367,7 +405,7 @@ input,select,textarea{font-family:inherit}
           </div>
           <div id="scenic-results"></div>
           <div id="guide-results">
-            <div class="empty"><div class="empty-icon">📖</div><div>填写旅行地点后点击检索，<br>系统将展示景区导览及攻略链接</div></div>
+            <div class="empty"><div class="empty-icon">📖</div></div>
           </div>
         </div>
       </div>
@@ -393,6 +431,139 @@ input,select,textarea{font-family:inherit}
 </div>
 
 <script>
+
+/* ==================== 城市主题背景系统 ==================== */
+const cityThemes = {
+  '北京':{icon:'🏯',gradient:'linear-gradient(135deg,#8b1a1a,#c41e3a)',decor:'🏯',desc:'紫禁之巅·皇城根下',tags:['故宫','长城','天坛','颐和园','胡同','京剧'],pattern:'repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(139,26,26,.05) 40px,rgba(139,26,26,.05) 80px)'},
+  '上海':{icon:'🌃',gradient:'linear-gradient(135deg,#1a3a5c,#2d6a9f)',decor:'🏙️',desc:'东方明珠·魔力之都',tags:['外滩','东方明珠','迪士尼','豫园','新天地','石库门'],pattern:'radial-gradient(circle at 20% 50%,rgba(45,106,159,.08),transparent 50%),radial-gradient(circle at 80% 20%,rgba(26,58,92,.06),transparent 50%)'},
+  '杭州':{icon:'🌊',gradient:'linear-gradient(135deg,#1a5c3a,#2d8f5e)',decor:'🏞️',desc:'人间天堂·西湖烟雨',tags:['西湖','灵隐寺','龙井茶','雷峰塔','宋城','千岛湖'],pattern:'radial-gradient(ellipse at 50% 30%,rgba(45,143,94,.08),transparent 60%)'},
+  '苏州':{icon:'🏡',gradient:'linear-gradient(135deg,#2d4a3a,#4a7c5c)',decor:'🎋',desc:'园林之城·江南水乡',tags:['拙政园','虎丘','苏绣','寒山寺','平江路','金鸡湖'],pattern:'linear-gradient(180deg,rgba(74,124,92,.04) 1px,transparent 1px)'},
+  '南京':{icon:'🏛️',gradient:'linear-gradient(135deg,#3d2b1f,#6b4c3b)',decor:'🕊️',desc:'六朝古都·金陵风韵',tags:['中山陵','夫子庙','明孝陵','总统府','玄武湖','秦淮河'],pattern:'radial-gradient(circle at 30% 40%,rgba(107,76,59,.06),transparent 50%)'},
+  '西安':{icon:'🗿',gradient:'linear-gradient(135deg,#5c3d1a,#8b6914)',decor:'⚔️',desc:'千年帝都·丝路起点',tags:['兵马俑','大雁塔','古城墙','华清池','回民街','钟鼓楼'],pattern:'linear-gradient(90deg,rgba(139,105,20,.04) 1px,transparent 1px)'},
+  '成都':{icon:'🐼',gradient:'linear-gradient(135deg,#1a5c3a,#3a8a4e)',decor:'🎋',desc:'天府之国·熊猫故乡',tags:['大熊猫基地','宽窄巷子','锦里','都江堰','武侯祠','火锅'],pattern:'radial-gradient(circle at 70% 80%,rgba(58,138,78,.08),transparent 50%)'},
+  '重庆':{icon:'🌉',gradient:'linear-gradient(135deg,#4a1a2a,#8b3a4e)',decor:'🚠',desc:'山城雾都·8D魔幻',tags:['洪崖洞','解放碑','磁器口','长江索道','武隆','火锅'],pattern:'linear-gradient(0deg,rgba(139,58,78,.05) 2px,transparent 2px)'},
+  '昆明':{icon:'🌺',gradient:'linear-gradient(135deg,#2a5c8a,#4a9ec4)',decor:'🌸',desc:'春城花都·彩云之南',tags:['石林','滇池','翠湖','世博园','民族村','鲜花饼'],pattern:'radial-gradient(circle at 50% 50%,rgba(74,158,196,.06),transparent 70%)'},
+  '大理':{icon:'🏔️',gradient:'linear-gradient(135deg,#2a4a6a,#4a8ab4)',decor:'🌊',desc:'风花雪月·洱海苍山',tags:['洱海','苍山','古城','双廊','崇圣寺','扎染'],pattern:'linear-gradient(180deg,rgba(74,138,180,.05) 1px,transparent 1px)'},
+  '丽江':{icon:'🏔️',gradient:'linear-gradient(135deg,#3a4a5a,#5a7a9a)',decor:'🏮',desc:'高原姑苏·纳西古韵',tags:['古城','玉龙雪山','泸沽湖','束河','木府','东巴文化'],pattern:'repeating-linear-gradient(0deg,transparent,transparent 20px,rgba(90,122,154,.04) 20px,rgba(90,122,154,.04) 40px)'},
+  '桂林':{icon:'⛰️',gradient:'linear-gradient(135deg,#1a4a3a,#3a7a5e)',decor:'🏞️',desc:'山水甲天下·漓江如画',tags:['漓江','阳朔','象鼻山','龙脊梯田','银子岩','西街'],pattern:'radial-gradient(ellipse at 50% 60%,rgba(58,122,94,.06),transparent 60%)'},
+  '张家界':{icon:'🏔️',gradient:'linear-gradient(135deg,#2a3a1a,#5a7a3a)',decor:'🌄',desc:'奇峰三千·阿凡达仙境',tags:['国家森林公园','天门山','玻璃栈道','袁家界','金鞭溪','黄龙洞'],pattern:'linear-gradient(170deg,rgba(90,122,58,.05) 40%,transparent 60%)'},
+  '黄山':{icon:'⛰️',gradient:'linear-gradient(135deg,#2a3a4a,#4a6a7a)',decor:'☁️',desc:'五岳归来不看山',tags:['迎客松','云海','温泉','西海大峡谷','宏村','徽派建筑'],pattern:'radial-gradient(ellipse at 50% 20%,rgba(74,106,122,.06),transparent 60%)'},
+  '武汉':{icon:'🏙️',gradient:'linear-gradient(135deg,#2a4a5c,#4a7a9c)',decor:'🌉',desc:'九省通衢·江湖之城',tags:['黄鹤楼','东湖','户部巷','长江大桥','武大樱花','热干面'],pattern:'linear-gradient(0deg,rgba(74,122,156,.04) 3px,transparent 3px)'},
+  '长沙':{icon:'🌶️',gradient:'linear-gradient(135deg,#5c2a1a,#8b4a2a)',decor:'🔥',desc:'星城烟火·湘味火辣',tags:['橘子洲','岳麓山','太平街','广电中心','臭豆腐','茶颜悦色'],pattern:'radial-gradient(circle at 80% 30%,rgba(139,74,42,.06),transparent 50%)'},
+  '广州':{icon:'🏙️',gradient:'linear-gradient(135deg,#1a3a2a,#2a6a4a)',decor:'🌺',desc:'千年商都·花城粤韵',tags:['广州塔','白云山','陈家祠','沙面','早茶','长隆'],pattern:'repeating-linear-gradient(45deg,transparent,transparent 30px,rgba(42,106,74,.04) 30px,rgba(42,106,74,.04) 60px)'},
+  '深圳':{icon:'🌆',gradient:'linear-gradient(135deg,#1a3a5a,#2a6a8a)',decor:'🚀',desc:'奇迹之城·创新之都',tags:['世界之窗','欢乐谷','大梅沙','深圳湾','人才公园','华侨城'],pattern:'radial-gradient(circle at 50% 50%,rgba(42,106,138,.05),transparent 70%)'},
+  '厦门':{icon:'🏖️',gradient:'linear-gradient(135deg,#1a4a6a,#3a8ab4)',decor:'🌊',desc:'海上花园·琴岛之恋',tags:['鼓浪屿','南普陀','环岛路','曾厝垵','沙坡尾','土笋冻'],pattern:'linear-gradient(90deg,rgba(58,138,180,.04) 2px,transparent 2px)'},
+  '青岛':{icon:'🍺',gradient:'linear-gradient(135deg,#1a3a5a,#2a6a8a)',decor:'⛵',desc:'帆船之都·啤酒之城',tags:['栈桥','八大关','崂山','啤酒博物馆','金沙滩','信号山'],pattern:'radial-gradient(ellipse at 30% 70%,rgba(42,106,138,.06),transparent 60%)'},
+  '三亚':{icon:'🌴',gradient:'linear-gradient(135deg,#1a5a6a,#3a9ab4)',decor:'🏝️',desc:'东方夏威夷·椰风海韵',tags:['亚龙湾','天涯海角','蜈支洲岛','南山寺','免税店','海鲜'],pattern:'linear-gradient(180deg,rgba(58,154,180,.06) 1px,transparent 1px)'},
+  '拉萨':{icon:'🏔️',gradient:'linear-gradient(135deg,#4a1a2a,#7a3a4a)',decor:'☸️',desc:'日光之城·雪域圣殿',tags:['布达拉宫','大昭寺','纳木错','八廓街','色拉寺','甜茶馆'],pattern:'repeating-linear-gradient(0deg,transparent,transparent 20px,rgba(122,58,74,.04) 20px,rgba(122,58,74,.04) 40px)'},
+  '贵阳':{icon:'🏞️',gradient:'linear-gradient(135deg,#2a4a1a,#5a8a3a)',decor:'🌲',desc:'避暑之都·林城贵阳',tags:['黔灵山','甲秀楼','青岩古镇','花溪','天河潭','酸汤鱼'],pattern:'radial-gradient(circle at 50% 80%,rgba(90,138,58,.06),transparent 60%)'},
+  '哈尔滨':{icon:'❄️',gradient:'linear-gradient(135deg,#2a3a5a,#4a6a8a)',decor:'⛄',desc:'冰城夏都·东方莫斯科',tags:['冰雪大世界','中央大街','索菲亚教堂','太阳岛','松花江','红肠'],pattern:'repeating-linear-gradient(45deg,transparent,transparent 25px,rgba(74,106,138,.04) 25px,rgba(74,106,138,.04) 50px)'},
+  '常州':{icon:'🦕',gradient:'linear-gradient(135deg,#1a4a2a,#3a8a4a)',decor:'🦖',desc:'中华龙城·智造之都',tags:['中华恐龙园','天目湖','南山竹海','淹城','嬉戏谷','大麻糕'],pattern:'radial-gradient(ellipse at 40% 30%,rgba(58,138,74,.06),transparent 60%),radial-gradient(ellipse at 70% 70%,rgba(26,74,42,.04),transparent 60%)'},
+  '无锡':{icon:'🌸',gradient:'linear-gradient(135deg,#3a2a4a,#6a4a7a)',decor:'🏞️',desc:'太湖明珠·江南盛地',tags:['鼋头渚','灵山大佛','惠山古镇','蠡园','三国城','酱排骨'],pattern:'radial-gradient(circle at 20% 50%,rgba(106,74,122,.06),transparent 50%)'},
+  '扬州':{icon:'🏡',gradient:'linear-gradient(135deg,#3a4a2a,#6a7a4a)',decor:'🎋',desc:'烟花三月·淮左名都',tags:['瘦西湖','个园','何园','大明寺','东关街','扬州炒饭'],pattern:'linear-gradient(90deg,rgba(106,122,74,.04) 1px,transparent 1px)'},
+  '绍兴':{icon:'🍶',gradient:'linear-gradient(135deg,#4a3a2a,#7a5a3a)',decor:'🏮',desc:'水乡酒都·名士之乡',tags:['鲁迅故里','沈园','东湖','兰亭','安昌古镇','黄酒'],pattern:'radial-gradient(circle at 50% 50%,rgba(122,90,58,.05),transparent 70%)'},
+  '洛阳':{icon:'🏯',gradient:'linear-gradient(135deg,#4a3a1a,#7a5a2a)',decor:'🌸',desc:'千年帝都·牡丹花城',tags:['龙门石窟','白马寺','洛阳牡丹','老君山','关林','水席'],pattern:'radial-gradient(circle at 50% 60%,rgba(122,90,42,.06),transparent 50%)'},
+  '开封':{icon:'🏮',gradient:'linear-gradient(135deg,#5a3a1a,#8a5a2a)',decor:'🎭',desc:'八朝古都·大宋梦华',tags:['清明上河园','龙亭','大相国寺','包公祠','鼓楼夜市','灌汤包'],pattern:'linear-gradient(0deg,rgba(138,90,42,.04) 2px,transparent 2px)'},
+  '郑州':{icon:'🏙️',gradient:'linear-gradient(135deg,#3a3a2a,#6a6a4a)',decor:'🗼',desc:'商都郑州·中原枢纽',tags:['少林寺','嵩山','河南博物院','黄帝故里','二七塔','烩面'],pattern:'repeating-linear-gradient(90deg,transparent,transparent 30px,rgba(106,106,74,.04) 30px,rgba(106,106,74,.04) 60px)'},
+  '太原':{icon:'🏛️',gradient:'linear-gradient(135deg,#4a2a1a,#7a4a2a)',decor:'🏯',desc:'龙城太原·晋善晋美',tags:['晋祠','双塔寺','山西博物院','蒙山大佛','柳巷','刀削面'],pattern:'linear-gradient(180deg,rgba(122,74,42,.04) 1px,transparent 1px)'},
+  '济南':{icon:'⛲',gradient:'linear-gradient(135deg,#2a4a5a,#4a7a8a)',decor:'🏞️',desc:'泉城济南·一城山色',tags:['趵突泉','大明湖','千佛山','黑虎泉','芙蓉街','把子肉'],pattern:'radial-gradient(circle at 50% 60%,rgba(74,122,138,.06),transparent 50%)'},
+  '南昌':{icon:'🏯',gradient:'linear-gradient(135deg,#4a1a1a,#7a2a2a)',decor:'⭐',desc:'英雄之城·赣鄱明珠',tags:['滕王阁','八一广场','绳金塔','瑶湖','梅岭','瓦罐汤'],pattern:'radial-gradient(circle at 60% 40%,rgba(122,42,42,.05),transparent 60%)'},
+  '合肥':{icon:'🏙️',gradient:'linear-gradient(135deg,#2a3a2a,#4a6a4a)',decor:'🌳',desc:'大湖名城·创新高地',tags:['包公园','逍遥津','三河古镇','大蜀山','李鸿章故居','小龙虾'],pattern:'radial-gradient(circle at 30% 70%,rgba(74,106,74,.05),transparent 60%)'},
+  '福州':{icon:'🏞️',gradient:'linear-gradient(135deg,#2a3a1a,#4a6a2a)',decor:'🌳',desc:'有福之州·榕城古韵',tags:['三坊七巷','鼓山','西湖公园','林则徐纪念馆','福州鱼丸','茉莉花茶'],pattern:'linear-gradient(90deg,rgba(74,106,42,.04) 2px,transparent 2px)'},
+  '石家庄':{icon:'🏙️',gradient:'linear-gradient(135deg,#3a2a3a,#6a4a6a)',decor:'🏔️',desc:'燕赵大地·太行明珠',tags:['赵州桥','正定古城','西柏坡','苍岩山','抱犊寨','驴肉火烧'],pattern:'repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(106,74,106,.04) 20px,rgba(106,74,106,.04) 40px)'},
+  '沈阳':{icon:'🏯',gradient:'linear-gradient(135deg,#3a2a2a,#6a4a4a)',decor:'🏛️',desc:'盛京沈阳·共和国长子',tags:['故宫','张氏帅府','北陵','中街','世博园','鸡架'],pattern:'radial-gradient(ellipse at 30% 60%,rgba(106,74,74,.06),transparent 50%)'},
+  '长春':{icon:'🏭',gradient:'linear-gradient(135deg,#2a3a4a,#4a6a7a)',decor:'🚗',desc:'北国春城·汽车之城',tags:['伪满皇宫','净月潭','长影世纪城','南湖','世界雕塑园','冷面'],pattern:'radial-gradient(circle at 50% 50%,rgba(74,106,122,.05),transparent 70%)'},
+  '天津':{icon:'🎡',gradient:'linear-gradient(135deg,#3a2a4a,#6a4a7a)',decor:'🏙️',desc:'津门故里·渤海明珠',tags:['天津之眼','五大道','意式风情区','古文化街','盘山','狗不理'],pattern:'linear-gradient(0deg,rgba(106,74,122,.04) 3px,transparent 3px)'},
+  '呼和浩特':{icon:'🏇',gradient:'linear-gradient(135deg,#2a3a1a,#5a7a3a)',decor:'🐎',desc:'青城呼市·草原之都',tags:['大召寺','昭君墓','内蒙古博物院','希拉穆仁草原','哈素海','手把肉'],pattern:'repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(90,122,58,.04) 40px,rgba(90,122,58,.04) 80px)'},
+  '乌鲁木齐':{icon:'🏔️',gradient:'linear-gradient(135deg,#3a3a2a,#6a6a4a)',decor:'🐫',desc:'亚心之都·天山脚下',tags:['天山天池','大巴扎','红山','南山牧场','新疆博物馆','烤羊肉'],pattern:'radial-gradient(ellipse at 50% 20%,rgba(106,106,74,.06),transparent 60%)'},
+  '西宁':{icon:'🏔️',gradient:'linear-gradient(135deg,#3a2a4a,#6a4a7a)',decor:'☸️',desc:'夏都西宁·青藏门户',tags:['塔尔寺','青海湖','东关清真大寺','茶卡盐湖','莫家街','手抓羊肉'],pattern:'radial-gradient(circle at 50% 50%,rgba(106,74,122,.05),transparent 70%)'},
+  '银川':{icon:'🏜️',gradient:'linear-gradient(135deg,#4a3a1a,#7a5a2a)',decor:'🐫',desc:'塞上江南·西夏古都',tags:['西夏王陵','沙湖','镇北堡影城','贺兰山','水洞沟','手抓羊肉'],pattern:'linear-gradient(90deg,rgba(122,90,42,.04) 1px,transparent 1px)'},
+  '兰州':{icon:'🍜',gradient:'linear-gradient(135deg,#3a3a1a,#6a6a3a)',decor:'🌉',desc:'金城兰州·黄河之滨',tags:['黄河铁桥','白塔山','甘肃省博物馆','五泉山','正宁路夜市','牛肉面'],pattern:'radial-gradient(circle at 40% 30%,rgba(106,106,58,.05),transparent 60%)'}
+};
+
+// 已生成图片的城市列表
+const cityImages = {
+  '北京':'images/theme/beijing.png',
+  '杭州':'images/theme/hangzhou.png',
+  '苏州':'images/theme/suzhou.png',
+  '西安':'images/theme/xian.png',
+  '成都':'images/theme/chengdu.png',
+  '桂林':'images/theme/guilin.png',
+  '张家界':'images/theme/zhangjiajie.png',
+  '常州':'images/theme/changzhou.png'
+};
+
+function applyCityTheme(city){
+  if(!city) return '';
+  const raw = city.trim();
+  if(!raw) return '';
+
+  // 辅助：去掉常见行政区划后缀，得到核心城市名
+  function cleanName(name){
+    return name.replace(/[省市县区旗镇乡]+$/,'').trim();
+  }
+  const core = cleanName(raw);
+
+  // 1. 精确匹配
+  if(cityThemes[raw]) return renderCityTheme(raw, cityThemes[raw]);
+  if(cityThemes[core]) return renderCityTheme(core, cityThemes[core]);
+
+  // 2. 子串匹配（query 至少 2 个字，避免单字误命中）
+  function findSubMatch(query){
+    if(!query || query.length < 2) return null;
+    for(const [key,val] of Object.entries(cityThemes)){
+      if(query.includes(key) || key.includes(query)) return [key,val];
+    }
+    return null;
+  }
+  let sub = findSubMatch(raw) || findSubMatch(core);
+  if(sub) return renderCityTheme(sub[0], sub[1]);
+
+  // 3. 前缀匹配：只匹配前两个字符，不再做单字包含匹配
+  const short = core.substring(0,2);
+  if(short.length >= 2){
+    for(const [key,val] of Object.entries(cityThemes)){
+      if(key.startsWith(short)) return renderCityTheme(key, val);
+    }
+  }
+
+  // 未匹配到任何城市
+  document.getElementById('city-hero').style.display = 'none';
+  document.body.classList.remove('theme-active');
+  document.body.style.setProperty('--theme-pattern','none');
+  return '';
+}
+
+function renderCityTheme(matchCity, theme){
+  const hero = document.getElementById('city-hero');
+  hero.style.display = 'flex';
+  hero.style.setProperty('--hero-gradient', theme.gradient);
+
+  // 检查是否有专属图片
+  const imgEl = document.getElementById('city-hero-img');
+  if(cityImages[matchCity]){
+    imgEl.src = cityImages[matchCity];
+    imgEl.style.display = 'block';
+    hero.classList.add('has-image');
+  } else {
+    imgEl.style.display = 'none';
+    hero.classList.remove('has-image');
+  }
+
+  document.getElementById('hero-name').textContent = matchCity;
+  document.getElementById('hero-desc').textContent = theme.desc;
+  document.getElementById('hero-tags').innerHTML = theme.tags.map(t=>`<span class="city-hero-tag">${t}</span>`).join('');
+  document.getElementById('hero-decor-tl').textContent = theme.decor;
+  document.getElementById('hero-decor-br').textContent = theme.decor;
+
+  // 更新 body 主题
+  document.body.classList.add('theme-active');
+  document.body.style.setProperty('--theme-pattern', theme.pattern || 'none');
+  return matchCity;
+}
+
+// 当城市变更时自动触发主题切换（在每次state.city赋值时直接调用applyCityTheme）
+
 /* ==================== API 调用层 ==================== */
 /*
  * 原理说明：
@@ -574,7 +745,7 @@ function dateHTML(){
   }
 
   return `
-  <div class="section-header"><h2>📅 出行日期</h2><p>查看天气、设置起始时间，日历标注每日宜与不宜</p></div>
+  <div class="section-header"><h2>📅 出行日期</h2></div>
   <div class="section-body">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
       <div class="weather-box">
@@ -746,7 +917,7 @@ const locIcons={hotel:'🏨',restaurant:'🍽️',scenic:'🏞️',heritage:'�
 
 function locationHTML(){
   return `
-  <div class="section-header"><h2>📍 出行地点</h2><p>住宿酒店 · 用餐餐馆 · 风景名胜 · 人文古迹 · 游乐场所，每项可在携程、小红书检索</p></div>
+  <div class="section-header"><h2>📍 出行地点</h2></div>
   <div class="section-body">
     <div class="budget-input-group mb-16">
       <input type="text" class="budget-input" id="loc-city" placeholder="城市名称" value="${state.city}" style="max-width:120px">
@@ -775,7 +946,7 @@ async function searchPOIFromAPI(){
   const city=document.getElementById('loc-city').value.trim()||state.city;
   const keyword=document.getElementById('loc-search').value.trim();
   if(!keyword){alert('请输入搜索关键词');return;}
-  state.city=city;
+  state.city=city; applyCityTheme(city);
   const resultsDiv=document.getElementById('poi-api-results');
   resultsDiv.style.display='block';
   resultsDiv.innerHTML='<div class="alert alert-info">🔍 正在从高德地图搜索「'+keyword+'」...</div>';
@@ -914,7 +1085,7 @@ const transportData={
 
 function transportHTML(){
   return `
-  <div class="section-header"><h2>🚗 出行选择</h2><p>选择出行方式（可多选），规划全程大路线与每日小路线</p></div>
+  <div class="section-header"><h2>🚗 出行选择</h2></div>
   <div class="section-body">
     <div class="card-title" style="margin-bottom:12px">🚀 出行方式（可多选组合）</div>
     <div class="transport-grid" id="transport-grid">
@@ -995,11 +1166,10 @@ function prepHTML(){
   return `
   <div class="section-header">
     <h2>📋 出行准备 <span class="badge badge-red">核心板块</span></h2>
-    <p>出行前一天北京时间20:00将自动弹窗提醒，系统检查无误后方可出行</p>
   </div>
   <div class="section-body">
     <div class="alert alert-warning" id="prep-summary">
-      ⚠️ 出行准备完成度：<strong id="prep-progress-text">0%</strong>，请逐项确认。完成度达100%并通过系统检查后方可出行。
+      ⚠️ 出行准备完成度：<strong id="prep-progress-text">0%</strong>
       <div class="progress-bar"><div class="progress-fill" id="prep-progress" style="width:0%"></div></div>
     </div>
     <div id="prep-groups"></div>
@@ -1248,7 +1418,6 @@ function summarizeBudget(){
     issues.forEach(it=>{
       html+=`<div class="alert alert-${it.type==='danger'?'danger':it.type==='warning'?'warning':'info'}">${it.type==='danger'?'⛔':it.type==='warning'?'⚠️':'💡'} ${it.msg}</div>`;
     });
-    html+='<div class="alert alert-info mt-16">💡 系统通过查阅相关资料建议：旅行预算建议按住宿30-40%、出行20-30%、饮食15-20%、游玩10-20%、应急5-10%分配，可根据实际调整。</div>';
   }else{
     html+='<div class="alert alert-success mt-16">✅ 预算分配合理，无明显问题。</div>';
   }
@@ -1273,6 +1442,15 @@ async function searchGuides(){
   const q=(document.getElementById('guide-query').value||'杭州').trim();
   const resultsDiv=document.getElementById('guide-results');
   resultsDiv.innerHTML='<div class="empty"><div class="empty-icon" style="animation:spin 1s linear infinite">🔍</div><div>正在从高德/携程/小红书检索攻略...</div></div>';
+
+  // 根据检索词切换城市主题
+  const matchedCity = applyCityTheme(q);
+  if(matchedCity){
+    state.city = matchedCity;
+    // 同步更新其他输入框中的城市显示
+    const planCity = document.getElementById('plan-city');
+    if(planCity) planCity.value = matchedCity;
+  }
 
   // 同时加载景区导览
   fetchScenicGuides(state.city);
@@ -1609,7 +1787,6 @@ function planHTML(){
   return `
   <div class="section-header">
     <h2>🧠 智能行程规划</h2>
-    <p>系统自动拉取美食/户外/人文三类推荐 → 你勾选感兴趣的 → 一键整合为合理的每日行程（餐厅仅作为饭点停靠，不当作景点）</p>
   </div>
   <div class="section-body">
     <div class="card" style="margin-bottom:20px">
@@ -1637,11 +1814,10 @@ function planHTML(){
           </button>
         </div>
       </div>
-      ${!rec?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px">👆 输入城市后点击"获取推荐"，系统将从高德拉取美食、户外、人文三类地点供你挑选</div>`:''}
     </div>
     ${listHtml}
     <div id="plan-result">${resultHtml}</div>
-    ${!p.result&&!rec?`<div class="empty"><div class="empty-icon">🧠</div><div>输入目的地 → 获取推荐 → 勾选想去的地方 → 生成行程<br><span style="font-size:12px">餐厅固定在午餐/晚餐时间，不会塞进景点列表</span></div></div>`:''}
+    ${!p.result&&!rec?`<div class="empty"><div class="empty-icon">🧠</div></div>`:''}
   </div>`;
 }
 
@@ -1687,7 +1863,7 @@ async function fetchRecommendations(){
   const city=cityEl.value.trim();
   if(!city){alert('请输入目的地城市');return;}
 
-  state.city=city;
+  state.city=city; applyCityTheme(city);
   state.plan.loading=true;
   state.plan.result=null;
   state.plan.selections={food:[],outdoor:[],culture:[]};
@@ -1735,7 +1911,7 @@ async function generatePlan(){
       .filter(Boolean);
   }
 
-  state.city=city;
+  state.city=city; applyCityTheme(city);
   p.days=days;
   p.budget=budget;
   p.loading=true;
@@ -1801,6 +1977,8 @@ function generateFallbackPlanLocal(city,days,selections){
   return daily;
 }
 renderSection();
+// 初始化城市主题
+applyCityTheme(state.city);
 renderLocList();
 renderRoute('big');
 // Auto-fill guide query based on default destination

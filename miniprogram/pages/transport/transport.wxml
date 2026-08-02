@@ -70,7 +70,6 @@
   <!-- ====== 未选择状态 ====== -->
   <view wx:else class="empty-state">
     <text class="empty-icon">🚀</text>
-    <text>点击上方卡片选择出行方式</text>
   </view>
 
 </view>
