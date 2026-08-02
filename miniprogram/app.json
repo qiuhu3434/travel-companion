@@ -9,7 +9,7 @@
     "pages/plan/plan"
   ],
   "window": {
-    "navigationBarTitleText": "悠行",
+    "navigationBarTitleText": "雨筹出行规划",
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f0f4f8"

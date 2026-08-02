@@ -1,4 +1,4 @@
-// 悠行 - WeChat Mini Program
+// 雨筹出行规划 - WeChat Mini Program
 App({
   onLaunch() {
     // 读取本地缓存的状态

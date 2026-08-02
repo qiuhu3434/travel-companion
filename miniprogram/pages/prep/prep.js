@@ -1,4 +1,4 @@
-// 悠行 - 出行准备页面
+// 雨筹出行规划 - 出行准备页面
 const api = require('../../utils/api');
 
 Page({

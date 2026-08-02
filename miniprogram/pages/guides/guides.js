@@ -1,4 +1,4 @@
-// 悠行 - 攻略检索页面 (5A景区版)
+// 雨筹出行规划 - 攻略检索页面 (5A景区版)
 const api = require('../../utils/api');
 const mock = require('../../utils/mock');
 

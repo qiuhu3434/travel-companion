@@ -1,4 +1,4 @@
-// 悠行 - 地点搜索页面
+// 雨筹出行规划 - 地点搜索页面
 const api = require('../../utils/api');
 const mock = require('../../utils/mock');
 

@@ -1,4 +1,4 @@
-// 悠行 - 旅行经费页面
+// 雨筹出行规划 - 旅行经费页面
 const api = require('../../utils/api');
 
 const COLORS = ['#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#22c55e', '#64748b'];
