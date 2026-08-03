@@ -75,7 +75,7 @@ router.get('/city', async (req, res) => {
     res.json({ data: cities });
   } catch (err) {
     console.error('[和风天气] 城市查询失败:', err.message);
-    res.status(500).json({ error: '城市查询请求失败', detail: err.message });
+    res.json({ data: [], error: '城市查询请求失败', detail: err.message });
   }
 });
 
@@ -124,7 +124,7 @@ router.get('/forecast', async (req, res) => {
     res.json({ data: daily });
   } catch (err) {
     console.error('[和风天气] 预报获取失败:', err.message);
-    res.status(500).json({ error: '天气预报请求失败', detail: err.message });
+    res.json({ data: [], error: '天气预报请求失败', detail: err.message });
   }
 });
 
@@ -168,7 +168,8 @@ router.get('/now', async (req, res) => {
   } catch (err) {
     console.error('[和风天气] 实时天气获取失败:', err.message);
     const is403 = err.response && err.response.status === 403;
-    res.status(500).json({
+    res.json({
+      data: null,
       error: '实时天气请求失败',
       detail: err.message,
       hint: is403
@@ -214,7 +215,7 @@ router.get('/warning', async (req, res) => {
     res.json({ data: warnings });
   } catch (err) {
     console.error('[和风天气] 预警获取失败:', err.message);
-    res.status(500).json({ error: '气象预警请求失败', detail: err.message });
+    res.json({ data: [], error: '气象预警请求失败', detail: err.message });
   }
 });
 

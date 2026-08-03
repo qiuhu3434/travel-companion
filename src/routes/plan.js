@@ -202,7 +202,7 @@ async function amapSearch(keywords, city, types) {
   try {
     const resp = await axios.get('https://restapi.amap.com/v3/place/text', {
       params: { key: AMAP_KEY, keywords, city, citylimit: true, types: types || '', offset: 12, page: 1, extensions: 'all' },
-      timeout: 8000,
+      timeout: 4000,
     });
     if (resp.data.status !== '1') return [];
     return (resp.data.pois || []).map(p => ({
@@ -282,9 +282,10 @@ router.post('/recommend', async (req, res) => {
     const results = {};
     const seen = { food: new Set(), outdoor: new Set(), culture: new Set() };
 
+    const recommendLimits = { food: 3, outdoor: 3, culture: 6 };
     for (const cat of ['food', 'outdoor', 'culture']) {
       results[cat] = [];
-      const plans = SEARCH_PLANS[cat];
+      const plans = SEARCH_PLANS[cat].slice(0, recommendLimits[cat]);
       const batchResults = await Promise.all(
         plans.map(p => amapSearch(p.kw, city, p.type))
       );
@@ -398,12 +399,12 @@ router.post('/generate', async (req, res) => {
       // 户外景点
       (selOutdoor.length > 0
         ? Promise.all(selOutdoor.slice(0, 6).map(name => amapSearch(name, city, '')))
-        : Promise.all(SEARCH_PLANS.outdoor.slice(0, 3).map(p => amapSearch(p.kw, city, p.type)))
+        : Promise.all(SEARCH_PLANS.outdoor.slice(0, 2).map(p => amapSearch(p.kw, city, p.type)))
       ),
       // 人文景点
       (selCulture.length > 0
         ? Promise.all(selCulture.slice(0, 6).map(name => amapSearch(name, city, '')))
-        : Promise.all(SEARCH_PLANS.culture.slice(0, 3).map(p => amapSearch(p.kw, city, p.type)))
+        : Promise.all(SEARCH_PLANS.culture.slice(0, 2).map(p => amapSearch(p.kw, city, p.type)))
       ),
       qweatherCity(city),
     ]);
