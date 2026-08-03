@@ -52,7 +52,7 @@ router.get('/city', async (req, res) => {
   if (cached) return res.json(cached);
 
   try {
-    const resp = await axios.get(`${GEO_URL}/v2/city/lookup`, {
+    const resp = await axios.get(`${GEO_URL}/geo/v2/city/lookup`, {
       params: { location, key: QWEATHER_KEY },
       timeout: 8000
     });
