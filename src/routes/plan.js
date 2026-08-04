@@ -224,7 +224,7 @@ async function amapSearch(keywords, city, types) {
 async function qweatherCity(cityName) {
   if (!QWEATHER_KEY) return null;
   try {
-    const resp = await axios.get(`${QWEATHER_GEO}/v2/city/lookup`, {
+    const resp = await axios.get(`${QWEATHER_GEO}/geo/v2/city/lookup`, {
       params: { location: cityName, key: QWEATHER_KEY }, timeout: 8000,
     });
     if (resp.data.code !== '200' || !resp.data.location || !resp.data.location.length) return null;
