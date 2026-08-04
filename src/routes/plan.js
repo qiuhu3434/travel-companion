@@ -274,8 +274,12 @@ async function qweatherForecast(locationId) {
  *  阶段一：POST /api/plan/recommend — 三列表推荐
  * ================================================================ */
 router.post('/recommend', async (req, res) => {
-  const { city } = req.body;
+  const { city, budget, days = 3 } = req.body;
   if (!city) return res.status(400).json({ error: '请提供目的地城市' });
+
+  // 预算参考：假设总预算的 30% 用于餐饮，每天 2 餐
+  const validBudget = budget && parseFloat(budget) > 0 ? parseFloat(budget) : 0;
+  const maxMealCost = validBudget > 0 ? (validBudget * 0.3 / Math.max(1, parseInt(days) || 3) / 2) : null;
 
   try {
     // 并行搜索三类 POI
@@ -310,7 +314,12 @@ router.post('/recommend', async (req, res) => {
 
           // 添加分类标签
           if (cat === 'food') {
-            if (p.cost) entry.costLabel = costLabel(p.cost);
+            if (p.cost) {
+              entry.costLabel = costLabel(p.cost);
+              if (maxMealCost !== null) {
+                entry.fitBudget = parseFloat(p.cost) <= maxMealCost;
+              }
+            }
             const name2 = (p.name || '').toLowerCase();
             if (name2.includes('小吃') || name2.includes('面') || name2.includes('粉')) entry.tags.push('小吃');
             if (name2.includes('火锅')) entry.tags.push('火锅');
@@ -351,9 +360,16 @@ router.post('/recommend', async (req, res) => {
     // 人文类：过滤掉非游客可访问的专业/机构场所
     results.culture = results.culture.filter(isValidTouristAttraction);
 
-    // 按评分排序
+    // 按预算匹配度 + 评分排序
     for (const cat of ['food', 'outdoor', 'culture']) {
-      results[cat].sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
+      results[cat].sort((a, b) => {
+        if (cat === 'food' && maxMealCost !== null) {
+          const aFit = a.fitBudget ? 1 : 0;
+          const bFit = b.fitBudget ? 1 : 0;
+          if (aFit !== bFit) return bFit - aFit;
+        }
+        return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+      });
       results[cat] = results[cat].slice(0, 12); // 每类最多12条
     }
 
@@ -463,6 +479,9 @@ router.post('/generate', async (req, res) => {
     // 餐厅按评分排序
     restaurants.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
 
+    // 预算约束：假设 30% 预算用于餐饮，每天 2 餐
+    const maxMealCost = budget ? (budget * 0.3 / days / 2) : null;
+
     // ---- 生成每日行程 ----
     const dailyPlans = [];
     const usedAttractions = new Set();
@@ -492,7 +511,7 @@ router.post('/generate', async (req, res) => {
 
       // 午餐：找离上午景点最近、当天还没用过的餐厅
       const morningCenter = calcCenter(morningSpots);
-      const lunchSpot = findNearestRestaurant(restaurants, morningCenter, usedAttractions, 'lunch');
+      const lunchSpot = findNearestRestaurant(restaurants, morningCenter, usedAttractions, 'lunch', maxMealCost);
       if (lunchSpot) usedAttractions.add(lunchSpot.name);
 
       // 下午景点 (取接下来2个，跳过已用的)
@@ -504,7 +523,7 @@ router.post('/generate', async (req, res) => {
 
       // 晚餐
       const afternoonCenter = calcCenter(afternoonSpots.length ? afternoonSpots : morningSpots);
-      const dinnerSpot = findNearestRestaurant(restaurants, afternoonCenter, usedAttractions, 'dinner');
+      const dinnerSpot = findNearestRestaurant(restaurants, afternoonCenter, usedAttractions, 'dinner', maxMealCost);
       if (dinnerSpot) usedAttractions.add(dinnerSpot.name);
 
       // 晚间活动（剩余一个景点或自由探索）
@@ -592,9 +611,11 @@ router.post('/generate', async (req, res) => {
     }
 
     const budgetPerDay = budget ? Math.round(budget / days) : null;
+    const budgetAnalysis = analyzeBudget(budget, days, dailyPlans);
 
     res.json({
       city, days, budget: budget || null, budgetPerDay,
+      budgetAnalysis,
       source: attractions.length >= days ? '实时数据' : '部分实时+模板',
       poisSource: `景点${attractions.length}个，餐厅${restaurants.length}个`,
       weatherAvailable: forecast.length > 0,
@@ -805,14 +826,93 @@ function fallbackTransitAdvice(from, to) {
   };
 }
 
-/** 找离中心点最近且未被使用的餐厅 */
-function findNearestRestaurant(restaurants, center, used, mealType) {
+/** 找离中心点最近且未被使用的餐厅；有预算时优先选符合预算的 */
+function findNearestRestaurant(restaurants, center, used, mealType, maxMealCost = null) {
   if (!center) return null;
   const candidates = restaurants
     .filter(r => r.lng !== null && r.lat !== null && (!used || !used.has(r.name)))
     .map(r => ({ ...r, _dist: distanceKm(center.lng, center.lat, r.lng, r.lat) }))
-    .sort((a, b) => a._dist - b._dist);
+    .sort((a, b) => {
+      if (maxMealCost !== null) {
+        const aFit = a.cost && parseFloat(a.cost) <= maxMealCost ? 1 : 0;
+        const bFit = b.cost && parseFloat(b.cost) <= maxMealCost ? 1 : 0;
+        if (aFit !== bFit) return bFit - aFit;
+      }
+      return a._dist - b._dist;
+    });
   return candidates[0] || null;
+}
+
+/** 根据景点名称/类型粗略估算门票（元/人） */
+function estimateTicketCost(poi) {
+  const text = ((poi.name || '') + (poi.type || '')).toLowerCase();
+  if (text.includes('迪士尼') || text.includes('欢乐谷') || text.includes('方特') || text.includes('环球')) return 350;
+  if (text.includes('游乐场') || text.includes('主题乐园')) return 250;
+  if (text.includes('水族馆') || text.includes('海洋馆')) return 180;
+  if (text.includes('动物园')) return 150;
+  if (text.includes('植物园')) return 60;
+  if (text.includes('古城') || text.includes('遗址')) return 80;
+  if (text.includes('博物馆') || text.includes('美术馆') || text.includes('科技馆') || text.includes('纪念馆')) return 0;
+  if (text.includes('寺') || text.includes('庙') || text.includes('道观') || text.includes('教堂')) return 30;
+  if (text.includes('公园') || text.includes('湖') || text.includes('山') || text.includes('湿地') || text.includes('森林') || text.includes('广场')) return 0;
+  return 60; // 默认
+}
+
+/** 预算分析 */
+function analyzeBudget(budget, days, schedule) {
+  if (!budget || budget <= 0) return null;
+
+  const perDay = Math.round(budget / days);
+  let estimatedFood = 0;
+  let mealCount = 0;
+  let estimatedTickets = 0;
+  const counted = new Set();
+
+  schedule.forEach(day => {
+    estimatedFood += 20; // 早餐粗略估算
+    day.schedule.forEach(slot => {
+      if (slot.isMeal && slot.poi && slot.poi.cost) {
+        estimatedFood += parseFloat(slot.poi.cost);
+        mealCount++;
+      } else if (slot.poi && slot.poi.name && !slot.isMeal && !['breakfast', 'evening'].includes(slot.slot)) {
+        if (!counted.has(slot.poi.name)) {
+          estimatedTickets += estimateTicketCost(slot.poi);
+          counted.add(slot.poi.name);
+        }
+      }
+    });
+  });
+
+  // 如果没有任何餐厅带人均消费，按每天 2 餐 * 80 元估算
+  if (mealCount === 0) {
+    estimatedFood = days * (20 + 80 * 2);
+  }
+
+  const estimatedTotal = estimatedFood + estimatedTickets;
+  const ratio = estimatedTotal / budget;
+
+  let status, message;
+  if (ratio <= 0.7) {
+    status = '宽松';
+    message = '预算充裕，可适当提升餐饮或预留伴手礼';
+  } else if (ratio <= 1.0) {
+    status = '合理';
+    message = '预算与方案大致匹配';
+  } else {
+    status = '紧张';
+    message = '预计花费可能超出预算，建议选择更多平价餐厅或精简景点';
+  }
+
+  return {
+    total: budget,
+    perDay,
+    estimatedFood,
+    estimatedTickets,
+    estimatedTotal,
+    ratio: Math.round(ratio * 100),
+    status,
+    message,
+  };
 }
 
 /* ================================================================

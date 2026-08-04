@@ -1717,7 +1717,7 @@ function planHTML(){
                 <div class="rec-meta">
                   ${item.rating?`<span>⭐ ${item.rating}</span>`:''}
                   ${item.address?`<span>📍 ${item.address}</span>`:''}
-                  ${item.costLabel?`<span class="rec-cost ${costCls}">${item.costLabel}</span>`:''}
+                  ${item.cost?`<span class="rec-cost ${costCls}">¥${item.cost}/人</span>`:''}
                   ${item.tags.slice(0,3).map(t=>`<span style="font-size:10px;color:var(--text-muted)">#${t}</span>`).join('')}
                 </div>
               </div>
@@ -1754,7 +1754,7 @@ function planHTML(){
         <span class="plan-source-tag ${sourceCls}">${r.source}</span>
       </div>
       ${r.weatherAvailable?'<div class="budget-tip">🌤️ 已根据实时天气预报智能调整（雨天排室内、晴天排户外、高温避暑）</div>':''}
-      ${r.budgetPerDay?`<div class="budget-tip">💰 日均预算约 ¥${r.budgetPerDay}</div>`:''}
+      ${r.budgetAnalysis?`<div class="budget-tip">💰 总预算 ¥${r.budgetAnalysis.total} · 日均 ¥${r.budgetAnalysis.perDay} · 预计餐饮 ¥${r.budgetAnalysis.estimatedFood} · 预计门票 ¥${r.budgetAnalysis.estimatedTickets} · 合计 ¥${r.budgetAnalysis.estimatedTotal}（${r.budgetAnalysis.ratio}%）· <strong>${r.budgetAnalysis.status}</strong></div>`:''}
       ${r.daily.map((day,i)=>`
         <div class="day-itinerary">
           <div class="day-itinerary-header ${day.weather?day.weather.text.includes('雨')?'rainy':parseInt(day.weather.tempMax)>=35?'hot':'sunny':''}">
@@ -1804,7 +1804,7 @@ function planHTML(){
         <div>
           <div class="field-label">总预算（可选）</div>
           <div class="budget-input-group" style="margin:0">
-            <input type="number" class="budget-input" id="plan-budget" value="${p.budget||''}" placeholder="元">
+            <input type="number" class="budget-input" id="plan-budget" value="${p.budget||''}" placeholder="元" oninput="state.plan.budget=parseInt(this.value)||0">
             <span>元</span>
           </div>
         </div>
@@ -1875,7 +1875,8 @@ async function fetchRecommendations(){
   renderSection();
 
   try{
-    const result=await apiFetch('/api/plan/recommend',{},'POST',{city});
+    const budget=parseInt(document.getElementById('plan-budget').value)||0;
+    const result=await apiFetch('/api/plan/recommend',{},'POST',{city,budget:budget||null});
     if(result){
       state.plan.recommendations=result;
     }else{
